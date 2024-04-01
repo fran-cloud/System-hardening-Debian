@@ -25,6 +25,3 @@ cert-to-efi-sig-list -g "$(< GUID.txt)" DB.crt DB.esl
 sign-efi-sig-list -g "$(< GUID.txt)" -k PK.key -c PK.crt PK PK.esl PK.auth
 sign-efi-sig-list -g "$(< GUID.txt)" -a -k PK.key -c PK.crt KEK KEK.esl KEK.auth
 sign-efi-sig-list -g "$(< GUID.txt)" -a -k KEK.key -c KEK.crt DB DB.esl DB.auth
-
-#Make the private key readable only by root
-chmod 0600 *.key
