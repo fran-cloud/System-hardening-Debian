@@ -34,14 +34,16 @@ ed eseguendo il comando:
 efi-readvar
 ```
 
-Come è possibile notare, nel mio caso è presente una chiave PK appartenente a Oracle, una chiave KEK e due chiavi db appartenenti a Microsoft. Per visualizzare invece le chiavi MOK è possibile utilizzare l'utility mokutil con il comando:
+Come è possibile notare, in questo caso sono presenti: una chiave PK appartenente a Oracle, una chiave KEK e due chiavi db appartenenti a Microsoft. 
+
+Per visualizzare invece le chiavi MOK è possibile utilizzare l'utility *mokutil* con il comando:
 ```
 mokutil --list-enrolled
 ```
-L'unica chiave MOK presente di default è quella di Debian.
+Qui l'unica chiave MOK presente di default è quella di Debian.
 
-### Creare e registrare la nostra chiave MOK
-Per creare una nostra chiave MOK è possibile utilizzare openssl:
+### Creare e registrare la propria chiave MOK
+Per creare una nuova chiave MOK è possibile utilizzare openssl:
 ```
 mkdir -p /var/lib/shim-signed/mok
 
@@ -56,38 +58,39 @@ Occorre poi registrare la chiave appena creata:
 ```
 mokutil --import /var/lib/shim-signed/mok/MOK.der
 ```
-All'esecuzione di questo comando, viene richiesto il settaggio di una password monouso da usare al successivo riavvio per confermare la registrazione della chiave. Riavviando, quindi, verrà eseguito il MOK manager come mostrato di seguito. Dal menù mostrato è possibile confermare la registrazione della chiave appena creata con *Enroll MOK* >> *Continue* >> *Yes* >> *[Password scelta]*.
+All'esecuzione di questo comando, viene richiesto il settaggio di una password monouso da usare al successivo riavvio per confermare la registrazione della chiave. Riavviando, quindi, verrà eseguito il MOK manager come mostrato di seguito. Da qui è possibile confermare la registrazione con *Enroll MOK* >> *Continue* >> *Yes* >> *[Password scelta]*.
 
-Al riavvio, eseguendo di nuovo il comando `mokutil --list-enrolled` oltre alla chiave Debian comparirà anche la nostra chiave.
-Questa chiave ora può essere utilizzata per firmare i moduli kernel a cui siamo interessati e che non sono già firmati da Debian o per ricompilare il Kernel.
+Al riavvio, eseguendo di nuovo il comando `mokutil --list-enrolled` oltre alla chiave Debian comparirà anche la chiave appena registrata.
+Questa chiave ora può essere utilizzata per firmare i moduli kernel a cui siamo interessati (e che non sono già firmati da Debian) o per ricompilare il Kernel.
 
 ### Test
-Per verificare che tutto funzioni correttamente è possibile scaricare un modulo del kernel Linux non firmato da Debian, compilarlo e provare a caricarlo. Per fare ciò utilizzo il pacchetto dahdi-source. È possibile installare tale pacchetto con `apt install dahdi-source`. Dopo l'installazione, in */usr/src/* viene memorizzato un file .tar.bz2 contenente i sorgenti del modulo. 
+Per verificare che tutto funzioni correttamente è possibile scaricare un modulo del kernel Linux non firmato da Debian, compilarlo e provare a caricarlo. In questo caso viene utilizzato il pacchetto dahdi-source. È possibile installare tale pacchetto con `apt install dahdi-source`. Dopo l'installazione, in */usr/src/* viene memorizzato un file .tar.bz2 contenente i sorgenti del modulo. 
 
-*(Per la compilazione del modulo kernel è necessario il pacchetto linux-headers corrispondente alla versione linux in uso, installabile con `apt install linux-headers-*`).*
+*(Per la compilazione del modulo kernel è necessario il pacchetto linux-headers corrispondente alla versione Linux in uso, installabile con `apt install linux-headers-*`).*
 
 Occorre quindi estrarre il contenuto del file .tar.bz2 con:
 ```
 tar -jxvf dahdi.tar.bz2
 ```
-Dopodiché entrare nella cartella */modiles/dahdi/* ed eseguire:
+Dopodiché entrare nella cartella */modules/dahdi/* ed eseguire:
 ```
 make
 make install
 make config
 ```
  
-Se ora eseguiamo il comando `sudo modinfo dahdi` si può vedere che non è presente nessuna firma. Se si prova a caricarlo con `sudo modprobe dahdi` viene restituito un errore.
+Se ora viene eseguito il comando `sudo modinfo dahdi` si può vedere che non è presente nessuna firma e provando a caricare il modilo con `sudo modprobe dahdi` viene restituito un errore.
 
-Andiamo quindi a firmare il modulo con la nostra chiave MOK utilizzando lo script *sign-file* fornito da Debian.
+Occorre quindi firmare il modulo con la chiave MOK precendentemente generata e per farlo viene utilizzato lo script *sign-file* fornito da Debian.
 ```
 /usr/src/linux-kbuild-4.19/scripts/sign-file sha256 /var/lib/shim-signed/mok/MOK.priv /var/lib/shim-signed/mok/MOK.der /lib/modules/4.19.0-26-amd64/dahdi/dahdi.ko
 ```
 
-Eseguendo ora `sudo modinfo dahdi` vediamo che il modulo risulta firmato con la nostra chiave. Eseguendo quindi `sudo modprobe dahdi` , il caricamento andrà a buon fine. Infatti, lanciando il comando `lsmod | grep dahdi` comaparirà il nostro modulo.
+Eseguendo nuovamente `sudo modinfo dahdi`  è possibile verificare che la firma sia effettivamente stata eseguita.
+A questo punto il comando `sudo modprobe dahdi` non restituisce errori e il modulo viene caricato correttamente. 
 
 ## Maggiore controllo sul sistema
-Per avere un maggiore controllo sul sistema, è possibile sostituire le chiavi PK, KEK e db presenti nel firmware con delle chiavi create da noi. In questo modo verrà eseguito solo il software firmato con le nostre chiavi. Per fare ciò occorre creare tre nuove chiavi e, siccome programmi diversi richiedono formati diversi, si ha la necessità di avere più formati. Tutte le operazioni necessarie possono essere automatizzate con il seguente script.
+Per avere un maggiore controllo sul sistema, è possibile sostituire le chiavi PK, KEK e db presenti nel firmware con delle chiavi create da noi. In questo modo verrà eseguito solo il software firmato con le nostre chiavi. Per fare ciò occorre creare tre nuove chiavi e, siccome programmi diversi richiedono formati diversi, si ha la necessità di avere più formati. Tutte le operazioni necessarie possono essere automatizzate con il seguente script (KeySB.sh).
 ```bash
 #!/bin/bash
 
@@ -134,5 +137,5 @@ sbsign --key DB.key --cert DB.crt --output /boot/efi/EFI/debian/shimx64.efi /boo
 ```
 A questo punto è possibile spegnere la VM e abilitare il Secure Boot che funzionerà correttamente.
 
-*NB: è possibile firmmare Shim non appena le chiavi vengono generate; tuttavia in questo caso si è preferito firmarlo in seguito alla sostituzione delle chiavi nel firmware per evidenziare il corretto funzionamento di Secure Boot che blocca l'avvio in caso di software non verificato.*
+*NB: è possibile firmmare Shim non appena la chiave db viene generata; tuttavia in questo caso si è preferito firmarlo in seguito alla sostituzione delle chiavi nel firmware per evidenziare il corretto funzionamento di Secure Boot che blocca l'avvio in caso di software non verificato.*
 
