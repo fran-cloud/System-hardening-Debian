@@ -7,8 +7,13 @@ La procedura qui descritta è stata testata utilizzando una virtual machine (VM)
 
 ## Procedura
 Quando si crea una nuova virtual machine, VirtualBox richiede delle informazioni preliminari. In questa fase occorre selezionare il flag *Abilita EFI*.
-Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, selezionare la versione di TPM da utilizzare (nel mio caso ho scelto 2.0) e abilitare il Secure Booot come mostrato nelle seguenti immagini.
 
+![schermata1](img/schermata1.png)
+![schermata2](img/schermata2.png)
+
+Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, selezionare la versione TPM da utilizzare (nel mio caso ho scelto 2.0) e abilitare il Secure Booot.
+
+![schermata3](img/Settings.png)
 
 A questo punto è possibile procedere con l'installazione di Debian.
 
@@ -34,6 +39,8 @@ ed eseguendo il comando:
 efi-readvar
 ```
 
+![readvar](img/efi-readvar.png)
+
 Come è possibile notare, in questo caso sono presenti: una chiave PK appartenente a Oracle, una chiave KEK e due chiavi db appartenenti a Microsoft. 
 
 Per visualizzare invece le chiavi MOK è possibile utilizzare l'utility *mokutil* con il comando:
@@ -41,6 +48,8 @@ Per visualizzare invece le chiavi MOK è possibile utilizzare l'utility *mokutil
 mokutil --list-enrolled
 ```
 Qui l'unica chiave MOK presente di default è quella di Debian.
+
+![moklist](img/mokutil-list.png)
 
 ### Creare e registrare la propria chiave MOK
 Per creare una nuova chiave MOK è possibile utilizzare openssl:
@@ -58,7 +67,11 @@ Occorre poi registrare la chiave appena creata:
 ```
 mokutil --import /var/lib/shim-signed/mok/MOK.der
 ```
-All'esecuzione di questo comando, viene richiesto il settaggio di una password monouso da usare al successivo riavvio per confermare la registrazione della chiave. Riavviando, quindi, verrà eseguito il MOK manager come mostrato di seguito. Da qui è possibile confermare la registrazione con *Enroll MOK* >> *Continue* >> *Yes* >> *[Password scelta]*.
+All'esecuzione di questo comando, viene richiesto il settaggio di una password monouso da usare al successivo riavvio per confermare la registrazione della chiave. Riavviando, quindi, verrà eseguito il MOK manager come mostrato di seguito. 
+
+![MokManager](img/gestoreMOK2.png)
+
+Da qui è possibile confermare la registrazione con *Enroll MOK* >> *Continue* >> *Yes* >> *[Password scelta]*.
 
 Al riavvio, eseguendo di nuovo il comando `mokutil --list-enrolled` oltre alla chiave Debian comparirà anche la chiave appena registrata.
 Questa chiave ora può essere utilizzata per firmare i moduli kernel a cui siamo interessati (e che non sono già firmati da Debian) o per ricompilare il Kernel.
