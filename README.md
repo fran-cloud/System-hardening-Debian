@@ -79,7 +79,7 @@ Questa chiave ora può essere utilizzata per firmare i moduli kernel a cui siamo
 ### Test
 Per verificare che tutto funzioni correttamente è possibile scaricare un modulo del kernel Linux non firmato da Debian, compilarlo e provare a caricarlo. In questo caso viene utilizzato il pacchetto dahdi-source. È possibile installare tale pacchetto con `apt install dahdi-source`. Dopo l'installazione, in */usr/src/* viene memorizzato un file .tar.bz2 contenente i sorgenti del modulo. 
 
-*(Per la compilazione del modulo kernel è necessario il pacchetto linux-headers corrispondente alla versione Linux in uso, installabile con `apt install linux-headers-*`).*
+*(Per la compilazione del modulo kernel è necessario il pacchetto linux-headers corrispondente alla versione Linux in uso, installabile con `apt install linux-headers-$(uname -r)`).*
 
 Occorre quindi estrarre il contenuto del file .tar.bz2 con:
 ```
@@ -87,12 +87,14 @@ tar -jxvf dahdi.tar.bz2
 ```
 Dopodiché entrare nella cartella */modules/dahdi/* ed eseguire:
 ```
-make
-make install
-make config
+make && make install && make config
 ```
  
-Se ora viene eseguito il comando `sudo modinfo dahdi` si può vedere che non è presente nessuna firma e provando a caricare il modilo con `sudo modprobe dahdi` viene restituito un errore.
+Se ora viene eseguito il comando `sudo modinfo dahdi` si può vedere che non è presente nessuna firma e provando a caricare il modulo con `sudo modprobe dahdi` viene restituito un errore.
+
+![modinfo](img/modinfo.png)
+
+![modprobe_fail](img/modprobe_fail.png)
 
 Occorre quindi firmare il modulo con la chiave MOK precendentemente generata e per farlo viene utilizzato lo script *sign-file* fornito da Debian.
 ```
@@ -142,7 +144,11 @@ A questo punto comparirà il menù *Custom Secure Boot Options*. Entrando in que
 
 A partire dalla chiave DB si va quindi ad eliminare la chiave esistente (*Delete key* >> Premere *Invio* in corrispondenza della chiave da eliminare) e ad aggiungere la chiave creata da noi (*Enroll key* >> *Enroll key using file* >> Selezionare il volume mostrato >> *EFI* >> *debian* >> *DB.cer*). Salvare le modifiche e ripetere la procedura anche per le chiavi KEK e PK.
 
-Al riavvio del sistema comparirà una finestra di errore. Questo perché avendo sostituito la chiave db di Microsoft, Shim non risulta più verificato e la sua esecuzione viene bloccata. Occorre spegnere la VM e disabilitare il Secure Boot dalle impostazioni affinché il sistema possa essere avviato correttamente. Una volta avviato il sistema è possibile varificare che le nostre chiavi siano state effettivamente registrate nel firmware con il comando `efi-readvar`.
+Al riavvio del sistema comparirà una finestra di errore come questa. 
+
+![Avvio_negato](img/Avvio_negato.png)
+
+Questo perché avendo sostituito la chiave db di Microsoft, Shim non risulta più verificato e la sua esecuzione viene bloccata. Occorre spegnere la VM e disabilitare il Secure Boot dalle impostazioni affinché il sistema possa essere avviato correttamente. Una volta avviato il sistema è possibile varificare che le nostre chiavi siano state effettivamente registrate nel firmware con il comando `efi-readvar`.
 
 Per far funzionare correttamente il Secure Boot occorre firmare Shim con la nostra chiave db:
 ```
