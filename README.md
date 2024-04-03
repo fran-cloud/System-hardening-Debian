@@ -1,17 +1,14 @@
 # Secure-Boot-Debian-10
 In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot su una distribuzione Debian 10. Esistono diversi modi per farlo e qui ne vengono presentati due, entrambi basati sull'utilizzo di Shim, un semplice pacchetto software progettato per funzionare come bootloader di prima fase sui sistemi UEFI.
 
-
-## Lab setup
-La procedura qui descritta è stata testata utilizzando una virtual machine (VM) creata con VirtualBox versione 7. È importante utilizzare questa vesrione se si è interessati ad integrare il secure boot con l'utilizzo di un modulo TPM al fine di conservare le chiavi private in modo sicuro. Le versioni più recenti di VirtualBox consentono infatti di abilitare il modulo TPM dalle impostazioni della VM, in modo da emulare un modulo TPM hardware. È stata utilizzata una distro Debian 10.13.0-amd64.
-
 ## Procedura
+La procedura qui descritta è stata testata utilizzando Debian 10.13.0-amd64 su una macchina virtuale creata con VirtualBox.
+
 Quando si crea una nuova virtual machine, VirtualBox richiede delle informazioni preliminari. In questa fase occorre selezionare il flag *Abilita EFI*.
 
-![schermata1](img/schermata1.png)
 ![schermata2](img/schermata2.png)
 
-Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, selezionare la versione TPM da utilizzare (nel mio caso ho scelto 2.0) e abilitare il Secure Booot.
+Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, abilitare il Secure Booot.
 
 ![schermata3](img/Settings.png)
 
@@ -28,7 +25,7 @@ Ci sono quattro tipi di chiavi di avvio sicuro integrate nel firmware:
 
 **Platform Key (PK):** è una sola ed è usata per firmare le chiavi KEK in modo che siano accettate come valide. Generalmente questa chiave è fornita dal produttore della scheda madre.
 
-A queste quattro tipologie se ne aggiunge una quinta che non appartiene alla parte standard di Secure Boot ma è relativa all'uso di Shim. Si tratta delle chiavi **Machine Owner Key (MOK)**. Sono equivalenti alle chiavi db e possono essere usate per firmare bootloader e altri eseguibili EFI. Quando si vuole ricompilare il kernel o utilizzare un modulo non firmato da Debian occorre creare una nuova chiave, aggiungerla alle chiavi MOK e utilizzarla per firmare il modulo che ci interessa, altrimenti tale modulo non può essere caricato.
+A queste quattro tipologie se ne aggiunge una quinta che non appartiene alla parte standard di Secure Boot ma è relativa all'uso di Shim. Si tratta delle chiavi **Machine Owner Key (MOK)**. Sono equivalenti alle chiavi db e possono essere usate per firmare bootloader e altri eseguibili EFI. Quando si vuole ricompilare il kernel o utilizzare un modulo non firmato da Debian occorre creare una nuova chiave, aggiungerla alle chiavi MOK e utilizzarla per firmare ciò che siamo interessati ad eseguire.
 
 È possibile dare un'occhiata alle chiavi presenti nel firmware installando il pacchetto *efitools* con:
 ```
@@ -41,7 +38,7 @@ efi-readvar
 
 ![readvar](img/efi-readvar.png)
 
-Come è possibile notare, in questo caso sono presenti: una chiave PK appartenente a Oracle, una chiave KEK e due chiavi db appartenenti a Microsoft. 
+Come è possibile notare, in questo caso sono presenti: una chiave PK appartenente ad Oracle, una chiave KEK e due chiavi db appartenenti a Microsoft. 
 
 Per visualizzare invece le chiavi MOK è possibile utilizzare l'utility *mokutil* con il comando:
 ```
@@ -74,7 +71,6 @@ All'esecuzione di questo comando, viene richiesto il settaggio di una password m
 Da qui è possibile confermare la registrazione con *Enroll MOK* >> *Continue* >> *Yes* >> *[Password scelta]*.
 
 Al riavvio, eseguendo di nuovo il comando `mokutil --list-enrolled` oltre alla chiave Debian comparirà anche la chiave appena registrata.
-Questa chiave ora può essere utilizzata per firmare i moduli kernel a cui siamo interessati (e che non sono già firmati da Debian) o per ricompilare il Kernel.
 
 ### Test
 Per verificare che tutto funzioni correttamente è possibile scaricare un modulo del kernel Linux non firmato da Debian, compilarlo e provare a caricarlo. In questo caso viene utilizzato il pacchetto dahdi-source. È possibile installare tale pacchetto con `apt install dahdi-source`. Dopo l'installazione, in */usr/src/* viene memorizzato un file .tar.bz2 contenente i sorgenti del modulo. 
@@ -90,9 +86,11 @@ Dopodiché entrare nella cartella */modules/dahdi/* ed eseguire:
 make && make install && make config
 ```
  
-Se ora viene eseguito il comando `sudo modinfo dahdi` si può vedere che non è presente nessuna firma e provando a caricare il modulo con `sudo modprobe dahdi` viene restituito un errore.
+Se ora viene eseguito il comando `sudo modinfo dahdi` si può vedere che non è presente nessuna firma.
 
 ![modinfo](img/modinfo.png)
+
+Provando a caricare il modulo con `sudo modprobe dahdi` viene restituito un errore.
 
 ![modprobe_fail](img/modprobe_fail.png)
 
@@ -110,11 +108,11 @@ Per avere un maggiore controllo sul sistema, è possibile sostituire le chiavi P
 #!/bin/bash
 
 #Create keys
-openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Genio PK/" -keyout PK.key \
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=My PK/" -keyout PK.key \
         -out PK.crt -days 3650 -nodes -sha256
-openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Genio KEK/" -keyout KEK.key \
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=My KEK/" -keyout KEK.key \
         -out KEK.crt -days 3650 -nodes -sha256
-openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Genio DB/" -keyout DB.key \
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=My DB/" -keyout DB.key \
         -out DB.crt -days 3650 -nodes -sha256
 
 #Create DER version
@@ -158,3 +156,7 @@ A questo punto è possibile spegnere la VM e abilitare il Secure Boot che funzio
 
 *NB: è possibile firmmare Shim non appena la chiave db viene generata; tuttavia in questo caso si è preferito firmarlo in seguito alla sostituzione delle chiavi nel firmware per evidenziare il corretto funzionamento di Secure Boot che blocca l'avvio in caso di software non verificato.*
 
+## TPM
+In questa procedura è fondamentale tenere al sicuro le chiavi private generate. Per fare ciò è possibile utilizzare un modulo TPM. Le versioni più recenti di VirtualBox consentono di abilitare il modulo TPM dalle impostazioni della VM scegliendo tra le due versioni disponibili (1.2 e 2.0).
+
+![schermata3](img/Settings.png)
