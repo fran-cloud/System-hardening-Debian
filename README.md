@@ -35,18 +35,11 @@ ed eseguendo il comando:
 ```
 efi-readvar
 ```
-
-![readvar](img/efi-readvar.png)
-
-Come è possibile notare, in questo caso sono presenti: una chiave PK appartenente ad Oracle, una chiave KEK e due chiavi db appartenenti a Microsoft. 
-
 Per visualizzare invece le chiavi MOK è possibile utilizzare l'utility *mokutil* con il comando:
 ```
 mokutil --list-enrolled
 ```
 Qui l'unica chiave MOK presente di default è quella di Debian.
-
-![moklist](img/mokutil-list.png)
 
 ### Creare e registrare la propria chiave MOK
 Per creare una nuova chiave MOK è possibile utilizzare openssl:
@@ -64,7 +57,7 @@ Occorre poi registrare la chiave appena creata:
 ```
 mokutil --import /var/lib/shim-signed/mok/MOK.der
 ```
-All'esecuzione di questo comando, viene richiesto il settaggio di una password monouso da usare al successivo riavvio per confermare la registrazione della chiave. Riavviando, quindi, verrà eseguito il MOK manager come mostrato di seguito. 
+All'esecuzione di questo comando, viene richiesta l'impostazione di una password monouso da usare al successivo riavvio per confermare la registrazione della chiave. Riavviando, quindi, verrà eseguito il MOK manager come mostrato di seguito. 
 
 ![MokManager](img/gestoreMOK2.png)
 
@@ -136,7 +129,7 @@ sign-efi-sig-list -g "$(< GUID.txt)" -a -k KEK.key -c KEK.crt DB DB.esl DB.auth
 
 Una volta eseguito questo script, le chiavi create devono essere registrate all'interno del firmware. A tale scopo è necessario copiare i file PK, KEK e DB con estensione .cer all'interno della partizione EFI (*/boot/efi/EFI/debian/*) e riavviare il pc per entrare nel menù UEFI. Da questo menù è possibile seguire la seguente procedura: 
 
-*Device Manager* >> *Secure Boot Configuration* >> *Secure Boot Mode* >> Selezionare *Custom Mode*. 
+*Device Manager* >> *Secure Boot Configuration* >> *Secure Boot Mode* >> *Custom Mode*. 
 
 A questo punto comparirà il menù *Custom Secure Boot Options*. Entrando in questo menù si possono gestire le chiavi presenti nel firmware. 
 
@@ -160,3 +153,10 @@ A questo punto è possibile spegnere la VM e abilitare il Secure Boot che funzio
 In questa procedura è fondamentale tenere al sicuro le chiavi private generate. Per fare ciò è possibile utilizzare un modulo TPM. Le versioni più recenti di VirtualBox consentono di abilitare il modulo TPM dalle impostazioni della VM scegliendo tra le due versioni disponibili (1.2 e 2.0).
 
 ![schermata3](img/Settings.png)
+
+## Riferimenti
+https://wiki.debian.org/SecureBoot
+
+https://www.rodsbooks.com/efi-bootloaders/controlling-sb.html
+
+https://ubs_csse.gitlab.io/secu_os/tutorials/linux_secure_boot.html
