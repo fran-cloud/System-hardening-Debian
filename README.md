@@ -27,6 +27,10 @@ Ci sono quattro tipi di chiavi di avvio sicuro integrate nel firmware:
 
 A queste quattro tipologie se ne aggiunge una quinta che non appartiene alla parte standard di Secure Boot ma è relativa all'uso di Shim. Si tratta delle chiavi **Machine Owner Key (MOK)**. Sono equivalenti alle chiavi db e possono essere usate per firmare bootloader e altri eseguibili EFI. Quando si vuole ricompilare il kernel o utilizzare un modulo non firmato da Debian occorre creare una nuova chiave, aggiungerla alle chiavi MOK e utilizzarla per firmare ciò che siamo interessati ad eseguire.
 
+Il processo complessivo è il segente.
+
+![SB](img/sb3.png)
+
 È possibile dare un'occhiata alle chiavi presenti nel firmware installando il pacchetto *efitools* con:
 ```
 apt install efitools
