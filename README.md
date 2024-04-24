@@ -8,8 +8,10 @@ Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo
 ![sb_tpm_process](img/SB_TPM_process.png)
 
 ## Procedura
-La procedura qui descritta è stata testata utilizzando Debian 10.13.0-amd64 su una macchina virtuale creata con VirtualBox.
+### Setup
+La procedura qui descritta è stata testata utilizzando Debian 10.13.0-amd64 su una macchina virtuale creata con VirtualBox versione 7. È importante utilizzare l'ultima versione di VirtualBox perché consente di emulare un modulo TPM.
 
+### Configurazione macchina virtuale ed installazione di Debian
 Quando si crea una nuova virtual machine, VirtualBox richiede delle informazioni preliminari. In questa fase occorre selezionare il flag *Abilita EFI*.
 
 ![schermata2](img/schermata2.png)
