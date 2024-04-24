@@ -1,5 +1,11 @@
 # Secure-Boot-Debian-10
-In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot su una distribuzione Debian 10. Esistono diversi modi per farlo e qui ne vengono presentati due, entrambi basati sull'utilizzo di Shim, un semplice pacchetto software progettato per funzionare come bootloader di prima fase sui sistemi UEFI.
+In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot su una distribuzione Debian 10. Il Secure Boot è una funzione aggiunta alle specifiche UEFI 2.3.1 e prevede che ogni file binario utilizzato durante l'avvio del sistema venga convalidato prima dell'esecuzione. La convalida comporta il controllo di una firma mediante un certificato. Il processo descritto in questo progetto si basa sul'utilizzo di Shim, un semplice pacchetto software progettato per funzionare come bootloader di prima fase sui sistemi UEFI.
+
+![sb_process](img/SB_process.png)
+
+Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM registra lo stato della macchina durante l'inizializzazione UEFI. Ciò significa che il TPM fornisce un controllo sullo stato di Secure Boot. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare l'intero disco e decifrarlo automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
+
+![sb_tpm_process](img/SB_TPM_process.png)
 
 ## Procedura
 La procedura qui descritta è stata testata utilizzando Debian 10.13.0-amd64 su una macchina virtuale creata con VirtualBox.
