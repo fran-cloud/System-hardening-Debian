@@ -16,12 +16,15 @@ Quando si crea una nuova virtual machine, VirtualBox richiede delle informazioni
 
 ![schermata2](img/schermata2.png)
 
-Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, abilitare il Secure Booot.
+Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, abilitare il Secure Booot e selezionare la versione di TPM da utilizzare.
 
 ![schermata3](img/Settings.png)
 
-A questo punto è possibile procedere con l'installazione di Debian.
+A questo punto è possibile procedere con l'installazione di Debian. Durante l'installazione è importante configurare la cifratura del disco, fondamentale per integrare il TPM nel processo di Secure Boot. In questo caso è stato effettuato un partizionamento manuale del disco e sono state create quattro partizioni: una per EFI (ESP), una per il boot, una per root e una che funge da aria di swap. Di queste quattro partizioni, quella relativa al file system root e all'area di swap sono state selezionate per la cifratura. Il risultato di questo processo è mestrato di seguito.
 
+![partizioni](img/Partizioni3.png)
+
+### Secure Boot
 Ad installazione completata il secure boot è già funzionante e fa affidamento su chiavi presenti di default nel firmaware (in genere chiavi Microsoft e chiavi del produttore della scheda madre) e su Shim. Quest'ultimo è firmato da Microsoft e ingloba la chiave pubblica di Debian che viene usata per verificare i componenti successivi (bootloader GRUB, Kernel, initrd).
 Ci sono quattro tipi di chiavi di avvio sicuro integrate nel firmware:
 
@@ -35,7 +38,7 @@ Ci sono quattro tipi di chiavi di avvio sicuro integrate nel firmware:
 
 A queste quattro tipologie se ne aggiunge una quinta che non appartiene alla parte standard di Secure Boot ma è relativa all'uso di Shim. Si tratta delle chiavi **Machine Owner Key (MOK)**. Sono equivalenti alle chiavi db e possono essere usate per firmare bootloader e altri eseguibili EFI. Quando si vuole ricompilare il kernel o utilizzare un modulo non firmato da Debian occorre creare una nuova chiave, aggiungerla alle chiavi MOK e utilizzarla per firmare ciò che siamo interessati ad eseguire.
 
-Il processo complessivo è il segente.
+In base a quanto appena detto, il processo complessivo di Secure Boot mostrato nell'introduzione può essere rappresentato in maniera più dettagliata come segue.
 
 ![SB](img/sb3.png)
 
@@ -107,7 +110,7 @@ Occorre quindi firmare il modulo con la chiave MOK precendentemente generata e p
 Eseguendo nuovamente `sudo modinfo dahdi`  è possibile verificare che la firma sia effettivamente stata eseguita.
 A questo punto il comando `sudo modprobe dahdi` non restituisce errori e il modulo viene caricato correttamente. 
 
-## Maggiore controllo sul sistema
+### Maggiore controllo sul sistema
 Per avere un maggiore controllo sul sistema, è possibile sostituire le chiavi PK, KEK e db presenti nel firmware con delle chiavi create da noi. In questo modo verrà eseguito solo il software firmato con le nostre chiavi. Per fare ciò occorre creare tre nuove chiavi e, siccome programmi diversi richiedono formati diversi, si ha la necessità di avere più formati. Tutte le operazioni necessarie possono essere automatizzate con il seguente script (KeySB.sh).
 ```bash
 #!/bin/bash
