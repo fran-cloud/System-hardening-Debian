@@ -40,7 +40,7 @@ A queste quattro tipologie se ne aggiunge una quinta che non appartiene alla par
 
 In base a quanto appena detto, il processo complessivo di Secure Boot mostrato nell'introduzione può essere rappresentato in maniera più dettagliata come segue.
 
-![SB](img/sb3.png)
+![SB](img/SB_process_keys.png)
 
 È possibile dare un'occhiata alle chiavi presenti nel firmware installando il pacchetto *efitools* con:
 ```
@@ -170,10 +170,8 @@ A questo punto è possibile spegnere la VM e abilitare il Secure Boot che funzio
 
 *NB: è possibile firmmare Shim non appena la chiave db viene generata; tuttavia in questo caso si è preferito firmarlo in seguito alla sostituzione delle chiavi nel firmware per evidenziare il corretto funzionamento di Secure Boot che blocca l'avvio in caso di software non verificato.*
 
-## TPM
-In questa procedura è fondamentale tenere al sicuro le chiavi private generate. Per fare ciò è possibile utilizzare un modulo TPM. Le versioni più recenti di VirtualBox consentono di abilitare il modulo TPM dalle impostazioni della VM scegliendo tra le due versioni disponibili (1.2 e 2.0).
+### Integrazione TPM
 
-![schermata3](img/Settings.png)
 
 ## Riferimenti
 https://wiki.debian.org/SecureBoot
