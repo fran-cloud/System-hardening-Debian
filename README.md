@@ -1,11 +1,11 @@
 # Secure-Boot-Debian-10
 In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot su una distribuzione Debian 10. Il Secure Boot è una funzione aggiunta alle specifiche UEFI 2.3.1 e prevede che ogni file binario utilizzato durante l'avvio del sistema venga convalidato prima dell'esecuzione. La convalida comporta il controllo di una firma mediante un certificato. Il processo descritto in questo progetto si basa sul'utilizzo di Shim, un semplice pacchetto software progettato per funzionare come bootloader di prima fase sui sistemi UEFI.
 
-![sb_process](img/SB_process.png)
+![sb_process](img/SB.png)
 
-Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM registra lo stato della macchina durante l'inizializzazione UEFI. Ciò significa che il TPM fornisce un controllo sullo stato di Secure Boot. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare l'intero disco e decifrarlo automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
+Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM registra lo stato della macchina. Ciò significa che il TPM fornisce un controllo sullo stato di Secure Boot. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare l'intero disco e decifrarlo automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
 
-![sb_tpm_process](img/SB_TPM_process.png)
+![sb_tpm_process](img/SB_TPM.png)
 
 ## Procedura
 ### Setup
@@ -171,11 +171,48 @@ A questo punto è possibile spegnere la VM e abilitare il Secure Boot che funzio
 *NB: è possibile firmmare Shim non appena la chiave db viene generata; tuttavia in questo caso si è preferito firmarlo in seguito alla sostituzione delle chiavi nel firmware per evidenziare il corretto funzionamento di Secure Boot che blocca l'avvio in caso di software non verificato.*
 
 ### Integrazione TPM
+Una volta terminata la configurazione del secure boot, è possibile passare all'integrazione del TPM. In particolare, vengono utilizzati i Platform Configuration Regiters (PCR) del TPM, nei quali vengono memorizzati gli hashes relativi allo stato del sistema. Nella sguente tabella vengono mostrate le informazioni registrate nei principali PCR.
 
+![pcr](img/pcr.png)
+
+In questo caso vengono utilizzati PCR0, PCR1, PCR7 e PCR14.
+
+Per legare la cifratura del disco ai valori presenti in tali registri viene utilizzato *Clevis*, un framework che consente di associare un volume LUKS a un sistema creando una chiave, crittografandola utilizzando il TPM e sigillando la chiave utilizzando valori PCR che rappresentano lo stato del sistema al momento della creazione della chiave. Occorre quindi installare i relativi pacchetti:
+
+```
+apt install -y clevis clevis-luks clevis-tpm2 clevis-dracut
+```
+
+Fatto ciò basta un sepmlice comando per far sì che il disco si sblocchi in automatico all'avvio in base ai valori dei PCR selezionati. Il comando è il seguente:
+
+```
+clevis luks bind -d /dev/sda3 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank":"sha256","pcr_ids":"0,1,7,14"}'
+```
+L'esecuzione di questo comando richiede di inserire la password di decifratura già esistente per la partizione, dopodiché il tutto dovrebbe funzionare.
+
+### Test
+Per verificare che il controllo dello stato funzioni correttamente è possibile provare a disabilitare il secure boot dalle impostazioni della macchina virtuale oppure accedere al menù UEFI durante l'avvio della macchina virtuale. In entrambi i casi il disco non viene sbloccato in automatico, ma viene richiesta la chiave.
+
+### Problemi
+In Debian 10 è possibile riscontrare dei problemi con l'utilizzo del TPM. Nel mio caso, al momento della decifratura del disco viene restituito il seguente errore.
+
+![error](img/Fail_tpm_debian10.png)
+
+Tuttavia, utilizzando la stessa procedura su una distribuzione Debian 11, il tutto funziona perfettamente.
 
 ## Riferimenti
+### Secure Boot
+
 https://wiki.debian.org/SecureBoot
 
 https://www.rodsbooks.com/efi-bootloaders/controlling-sb.html
 
 https://ubs_csse.gitlab.io/secu_os/tutorials/linux_secure_boot.html
+
+### TPM e Clevis
+
+https://wiki.archlinux.org/title/Trusted_Platform_Module
+
+https://wiki.archlinux.org/title/Clevis
+
+https://access.redhat.com/documentation/fr-fr/red_hat_enterprise_linux/9/html/security_hardening/configuring-manual-enrollment-of-volumes-using-tpm2_configuring-automated-unlocking-of-encrypted-volumes-using-policy-based-decryption
