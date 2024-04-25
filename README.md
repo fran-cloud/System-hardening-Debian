@@ -1,9 +1,9 @@
 # Secure-Boot-Debian-10
-In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot su una distribuzione Debian 10. Il Secure Boot è una funzione aggiunta alle specifiche UEFI 2.3.1 e prevede che ogni file binario utilizzato durante l'avvio del sistema venga convalidato prima dell'esecuzione. La convalida comporta il controllo di una firma mediante un certificato. Il processo descritto in questo progetto si basa sul'utilizzo di Shim, un semplice pacchetto software progettato per funzionare come bootloader di prima fase sui sistemi UEFI.
+In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot su una distribuzione Debian 10. Il Secure Boot è una funzione aggiunta alle specifiche UEFI 2.3.1 e prevede che ogni file binario utilizzato durante l'avvio del sistema venga convalidato prima dell'esecuzione. La convalida comporta il controllo di una firma mediante un certificato. Il processo descritto in questo progetto si basa sul'utilizzo di Shim, un semplice pacchetto software progettato per funzionare come bootloader di prima fase sui sistemi UEFI. Le fasi previste dal Secure Boot sono illustrate nella figura seguente.
 
 ![sb_process](img/SB.png)
 
-Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM registra lo stato della macchina. Ciò significa che il TPM fornisce un controllo sullo stato di Secure Boot. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare l'intero disco e decifrarlo automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
+Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM fornisce un controllo sullo stato del sistema. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare l'intero disco e decifrarlo automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
 
 ![sb_tpm_process](img/SB_TPM.png)
 
@@ -16,11 +16,11 @@ Quando si crea una nuova virtual machine, VirtualBox richiede delle informazioni
 
 ![schermata2](img/schermata2.png)
 
-Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, abilitare il Secure Booot e selezionare la versione di TPM da utilizzare.
+Dopo aver effettuato queste prime configurazioni, è necessario aprire le impostazioni della VM e sotto la voce *Sistema*, abilitare il Secure Boot e selezionare la versione di TPM da utilizzare.
 
 ![schermata3](img/Settings.png)
 
-A questo punto è possibile procedere con l'installazione di Debian. Durante l'installazione è importante configurare la cifratura del disco, fondamentale per integrare il TPM nel processo di Secure Boot. In questo caso è stato effettuato un partizionamento manuale del disco e sono state create quattro partizioni: una per EFI (ESP), una per il boot, una per root e una che funge da aria di swap. Di queste quattro partizioni, quella relativa al file system root e all'area di swap sono state selezionate per la cifratura. Il risultato di questo processo è mestrato di seguito.
+A questo punto è possibile procedere con l'installazione di Debian. Durante l'installazione è importante configurare la cifratura del disco, fondamentale per integrare il TPM nel processo di Secure Boot. In questo caso è stato effettuato un partizionamento manuale del disco e sono state create quattro partizioni: una per EFI (ESP), una per il boot, una per root e una che funge da area di swap. Di queste, le ultime due sono state selezionate per la cifratura.
 
 ![partizioni](img/Partizioni3.png)
 
@@ -110,7 +110,7 @@ Occorre quindi firmare il modulo con la chiave MOK precendentemente generata e p
 Eseguendo nuovamente `sudo modinfo dahdi`  è possibile verificare che la firma sia effettivamente stata eseguita.
 A questo punto il comando `sudo modprobe dahdi` non restituisce errori e il modulo viene caricato correttamente. 
 
-### Maggiore controllo sul sistema
+### Modifica delle chiavi PK, KEK, DB
 Per avere un maggiore controllo sul sistema, è possibile sostituire le chiavi PK, KEK e db presenti nel firmware con delle chiavi create da noi. In questo modo verrà eseguito solo il software firmato con le nostre chiavi. Per fare ciò occorre creare tre nuove chiavi e, siccome programmi diversi richiedono formati diversi, si ha la necessità di avere più formati. Tutte le operazioni necessarie possono essere automatizzate con il seguente script (KeySB.sh).
 ```bash
 #!/bin/bash
@@ -188,10 +188,10 @@ Fatto ciò basta un sepmlice comando per far sì che il disco si sblocchi in aut
 ```
 clevis luks bind -d /dev/sda3 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank":"sha256","pcr_ids":"0,1,7,14"}'
 ```
-L'esecuzione di questo comando richiede di inserire la password di decifratura già esistente per la partizione, dopodiché il tutto dovrebbe funzionare.
+L'esecuzione di questo comando richiede di inserire la password di decifratura già esistente per la partizione. Fatto ciò è possibile verificare che il tutto funzioni riavviando il sistema.
 
 ### Test
-Per verificare che il controllo dello stato funzioni correttamente è possibile provare a disabilitare il secure boot dalle impostazioni della macchina virtuale oppure accedere al menù UEFI durante l'avvio della macchina virtuale. In entrambi i casi il disco non viene sbloccato in automatico, ma viene richiesta la chiave.
+Per verificare che il controllo dello stato funzioni correttamente è possibile provare a disabilitare il secure boot dalle impostazioni della macchina virtuale oppure ad entrare ed uscire dal menù UEFI durante l'avvio della macchina virtuale. In entrambi i casi il disco non viene sbloccato in automatico, ma viene richiesta la chiave.
 
 ### Problemi
 In Debian 10 è possibile riscontrare dei problemi con l'utilizzo del TPM. Nel mio caso, al momento della decifratura del disco viene restituito il seguente errore.
