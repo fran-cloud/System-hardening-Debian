@@ -3,9 +3,11 @@ In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot s
 
 ![sb_process](img/SB.png)
 
-Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM fornisce un controllo sullo stato del sistema. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare l'intero disco e decifrarlo automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
+Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM fornisce un controllo sullo stato del sistema. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare alcune partizioni del disco e decifrarle automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
 
 ![sb_tpm_process](img/SB_TPM.png)
+
+Inoltre, viene implementato anche un controllo di integrità utilizzando Tripwire nella sua versione open source, in modo da avere il pieno controllo su tutte le modifiche riguardanti i file critici del sistema.
 
 ## Procedura
 ### Setup
@@ -23,7 +25,7 @@ Dopo aver effettuato queste prime configurazioni, è necessario aprire le impost
 A questo punto è possibile procedere con l'installazione di Debian. Durante l'installazione è importante configurare la cifratura del disco, fondamentale per integrare il TPM nel processo di Secure Boot. In questo caso è stato effettuato un partizionamento manuale del disco e sono state create sei partizioni: 
 * **ESP:** partizione EFI.
 * **boot:** contiene tutti i file necessari al boot del sistema.
-* **root (/):** questa partizione viene lasciata in chiaro ma sarà soggetta a controllo di integrità tramite Tripwire.
+* **root (/):** questa partizione viene lasciata in chiaro ma sarà sottoposta a controllo di integrità tramite Tripwire.
 * **home:** contiene le applicazioni. Tale partizione verrà cifrata con luks+TPM.
 * **secrets:** contiene i segreti del nostro sistema. Tale partizione verrà cifrata con luks+TPM.
 * **swap:** area di swap. Tale partizione verrà cifrata con luks+TPM.
@@ -195,6 +197,8 @@ clevis luks bind -d /dev/sda4 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank"
 ```
 L'esecuzione di questo comando richiede di inserire la password di decifratura già esistente per la partizione (in questo caso partizione home). Questo comando va eseguito per tutte le partizioni che si desidera cifrare con TPM e decifrare in maniera automatica all'avvio, quindi viene ripetuto anche per le partizioni secrets (/dev/sda5) e swap (/dev/sda6).
 
+*Nota: oltre allo sblocco tramite TPM, si consiglia di registrare un'altra chiave di decifratura per le varie partizioni, in caso contrario una eventuale manomissione renderebbe il sistema non più accessibile. La nuova chiave va conservata al sicuro su un dispositivo separato. Va inoltre eliminata la passphrase impostata inizialmente in quanto risulta essere debole.*
+
 ### Test
 Per verificare che il controllo dello stato funzioni correttamente è possibile provare a disabilitare il secure boot dalle impostazioni della macchina virtuale oppure ad entrare ed uscire dal menù UEFI durante l'avvio della macchina virtuale. In entrambi i casi il disco non viene sbloccato in automatico, ma viene richiesta la chiave. Lo stesso risultato si ha se si prova ad aggiungere un'ulteriore chiave MOK.
 
@@ -248,7 +252,7 @@ tripwire --check
 ```
 Questo comporta la creazione di un report con tutte le modifiche rilevate.
 
-Infine, è possibile sfruttare l'utility *cron* di Linux per programmare l'esecuzione di un check in modo periodico e del tutto automatico. Per farlo basta aggiungere modificare la *crontab* di Linux eseguendo 
+Infine, è possibile sfruttare l'utility *cron* di Linux per programmare l'esecuzione di un check in modo periodico e del tutto automatico. Per farlo basta modificare la *crontab* di Linux eseguendo 
 ```
 crontab -e
 ```
@@ -260,17 +264,27 @@ ed inserendo la riga
 In questo caso è stato configurato un controllo di integrità tutti i giorni alle ore 05:00.
 
 ## Caso d'uso
-La procedura qui descritta è pensata per essere implementata in uno scenario di rete reale. L'idea di base è quella di utilizzare ONIE (Open Network Install Environment) + ONL (Open Network Linux). ONIE è la combinazione di un boot loader e un piccolo sistema operativo per switch di rete che fornisce un ambiente per il provisioning automatizzato, mentre ONL è una distribuzione Linux per switch bare metal.
+La procedura qui descritta è pensata per essere implementata in uno scenario di rete reale. L'idea di base è quella di utilizzare ONIE (Open Network Install Environment) + ONL (Open Network Linux). ONIE è la combinazione di un boot loader e di un piccolo sistema operativo per switch di rete che fornisce un ambiente per il provisioning automatizzato, mentre ONL è una distribuzione Linux per switch bare metal.
 
-Quando una nuova macchina si avvia per la prima volta, ONIE individua ed esegue il programma di installazione di ONL, come mostrato qui:
+Quando una nuova macchina si avvia per la prima volta, ONIE individua ed esegue il programma di installazione di ONL (figura a sinistra). Dopo l'installazione iniziale, i successivi avvii passano direttamente ad ONL, bypassando ONIE (figura a destra).
 
-![ONIE_firstboot](img/ONIE/first_boot.png)
-
-Dopo l'installazione iniziale, i successivi avvii passano direttamente ad ONL, bypassando ONIE.
-
-![ONIE_nextboot](img/ONIE/second_boot.png)
+![ONIE_firstboot](img/ONIE/onie_boots.png)
 
 Sia ONIE che ONL sono sistemi operativi basati su Linux, pertanto, l'applicazione del Secure Boot con shim è appropriata.
+
+In tal caso, dovrà essere costruita un'apposita immagine ONIE per il Secure Boot. Questa immagine dovrà contenere:
+1. Shim, firmato da una chiave presente nel DB e con la chiave del fornitore di ONIE incorporata.
+2. Grub firmato con la chiave ONIE.
+3. Linux kernel di ONIE firmato con la chiave ONIE.
+
+In questo modo si otterrà un file .ISO di ONIE configurato per l'avvio sicuro. Occorre poi estendere la fiducia anche alle ONIE installable images, ovvero a quelle immagini che ONIE è in grado di scaricare ed installare (nel nostro caso l'immagine ONL). Per fare ciò è necessario che l'immagine ONL abbia un determinato formato, suddivisio in tre parti:
+1. Executable Installer Data, ovvero la porzione di immagine che ONIE esegue per installare il sistema operativo.
+2. Signature, applicata alla Executable Installer Data.
+3. Image Information Block, contenete le informazioni sulla firma applicata.
+
+Inoltre, deve essere fornito il certificato per verificare tale firma in modo da poterlo inserire nel processo di Secure Boot.
+
+Allo stesso modo, anche l'immagine di installazione di ONL deve contenere tutti i binari necessari per l'avvio sicuro: una propria versione di Shim firmata da una chiave DB e con la chiave per verificare ONL incorporata, e i rispettivi binari di grub e linux kernel anch'essi firmati con la chiave ONL.
 
 ## Riferimenti
 ### Secure Boot
