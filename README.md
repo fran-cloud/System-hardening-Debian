@@ -250,7 +250,10 @@ A questo punto per eseguire un controllo sull'integrità del sistema non ci rest
 ```
 tripwire --check
 ```
-Questo comporta la creazione di un report con tutte le modifiche rilevate.
+Questo comporta la creazione di un report con tutte le modifiche rilevate. Il report viene salvato in */var/lib/tripwire/report/* ed è possibile leggerlo lanciando il comando:
+```
+twprint --print-report --twrfile /var/lib/tripwire/report/[nome_report]
+```
 
 Infine, è possibile sfruttare l'utility *cron* di Linux per programmare l'esecuzione di un check in modo periodico e del tutto automatico. Per farlo basta modificare la *crontab* di Linux eseguendo 
 ```
