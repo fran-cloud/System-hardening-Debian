@@ -20,9 +20,14 @@ Dopo aver effettuato queste prime configurazioni, è necessario aprire le impost
 
 ![schermata3](img/Settings.png)
 
-A questo punto è possibile procedere con l'installazione di Debian. Durante l'installazione è importante configurare la cifratura del disco, fondamentale per integrare il TPM nel processo di Secure Boot. In questo caso è stato effettuato un partizionamento manuale del disco e sono state create quattro partizioni: una per EFI (ESP), una per il boot, una per root e una che funge da area di swap. Di queste, le ultime due sono state selezionate per la cifratura.
+A questo punto è possibile procedere con l'installazione di Debian. Durante l'installazione è importante configurare la cifratura del disco, fondamentale per integrare il TPM nel processo di Secure Boot. In questo caso è stato effettuato un partizionamento manuale del disco e sono state create sei partizioni: 
+* **ESP:** partizione EFI.
+* **boot:** contiene tutti i file necessari al boot del sistema.
+* **root (/):** questa partizione viene lasciata in chiaro ma sarà soggetta a controllo di integrità tramite Tripwire.
+* **home:** contiene le applicazioni. Tale partizione verrà cifrata con luks+TPM.
+* **secrets:** contiene i segreti del nostro sistema. Tale partizione verrà cifrata con luks+TPM.
+* **swap:** area di swap. Tale partizione verrà cifrata con luks+TPM.
 
-![partizioni](img/Partizioni3.png)
 
 ### Secure Boot
 Ad installazione completata il secure boot è già funzionante e fa affidamento su chiavi presenti di default nel firmaware (in genere chiavi Microsoft e chiavi del produttore della scheda madre) e su Shim. Quest'ultimo è firmato da Microsoft e ingloba la chiave pubblica di Debian che viene usata per verificare i componenti successivi (bootloader GRUB, Kernel, initrd).
@@ -186,12 +191,12 @@ apt install -y clevis clevis-luks clevis-tpm2 clevis-dracut
 Fatto ciò basta un sepmlice comando per far sì che il disco si sblocchi in automatico all'avvio in base ai valori dei PCR selezionati. Il comando è il seguente:
 
 ```
-clevis luks bind -d /dev/sda3 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank":"sha256","pcr_ids":"0,1,7,14"}'
+clevis luks bind -d /dev/sda4 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank":"sha256","pcr_ids":"0,1,7,14"}'
 ```
-L'esecuzione di questo comando richiede di inserire la password di decifratura già esistente per la partizione. Fatto ciò è possibile verificare che il tutto funzioni riavviando il sistema.
+L'esecuzione di questo comando richiede di inserire la password di decifratura già esistente per la partizione (in questo caso partizione home). Questo comando va eseguito per tutte le partizioni che si desidera cifrare con TPM e decifrare in maniera automatica all'avvio, quindi viene ripetuto anche per le partizioni secrets (/dev/sda5) e swap (/dev/sda6).
 
 ### Test
-Per verificare che il controllo dello stato funzioni correttamente è possibile provare a disabilitare il secure boot dalle impostazioni della macchina virtuale oppure ad entrare ed uscire dal menù UEFI durante l'avvio della macchina virtuale. In entrambi i casi il disco non viene sbloccato in automatico, ma viene richiesta la chiave.
+Per verificare che il controllo dello stato funzioni correttamente è possibile provare a disabilitare il secure boot dalle impostazioni della macchina virtuale oppure ad entrare ed uscire dal menù UEFI durante l'avvio della macchina virtuale. In entrambi i casi il disco non viene sbloccato in automatico, ma viene richiesta la chiave. Lo stesso risultato si ha se si prova ad aggiungere un'ulteriore chiave MOK.
 
 ### Problemi
 In Debian 10 è possibile riscontrare dei problemi con l'utilizzo del TPM. Nel mio caso, al momento della decifratura del disco viene restituito il seguente errore.
@@ -199,6 +204,77 @@ In Debian 10 è possibile riscontrare dei problemi con l'utilizzo del TPM. Nel m
 ![error](img/Fail_tpm_debian10.png)
 
 Tuttavia, utilizzando la stessa procedura su una distribuzione Debian 11, il tutto funziona perfettamente.
+
+### Controllo di integrità con Tripwire
+Tripwire è un tool di sicurezza che consente di monitorare le modifiche apportate a file e directory rispetto a uno stato sicuro di partenza. Qui viene applicato alla partizione root. Il funzionamento di Tripwire può essere schematizzato come segue:
+
+![Tripwire_workflow](img/tripwire_workflow.png)
+
+In pratica, viene utilizzato un file di policy dove vengono indicate le regole che stabiliscono quali oggetti devono essere controllati ed in che modo. Sulla base di queste policy, Tripwire calcola una fotografia del sistema quando è in uno stato sicuro, memorizzando un insieme di informazioni relative ad ogni oggetto (file e directory) che vogliamo proteggere da eventuali manomissioni. Questo è possibile mediante l'impiego di funzioni hash. Questa fotografia viene conservata in un file apposito (database dei file di sistema).
+
+Quando viene effettuato l'integrity check, viene calcolata una nuova fotografia del sistema e viene confrontata con quella conservata nel database. Il risultato di questo confronto è un file di report in cui vengono evidenziate tutte modifiche che sono state apportate al sistema rispetto allo stato sicuro. A questo punto spetta all'amministratore stabilire se le modifiche sono dannose o meno per il sistema, e prendere le dovute contromisure. Tripwire può essere configurato in modo da inviare una e-mail all’amministratore del sistema in caso di modifiche critiche per la sicurezza.
+
+Per proteggersi da modifiche non autorizzate, Tripwire memorizza i suoi file più importanti (database, policy, configurazione e report) in un formato binario interno, dopodichè vi applica una firma digitale. In particolare, Tripwire si avvale di due key file: site key e local key (ognuno dei quali è generato tramite il comando twadmin e contiene una coppia di chiavi pubblica/privata). La prima serve a firmare il file di configurazione e il file di policy; l'altra viene utilizzata per firmare il database e i report. Di conseguenza, modificare o sostituire i suddetti file richiede la conoscenza della chiave privata, la quale è cifrata con una passphrase generata in fase di installazione.
+
+Per installare Tripwire su Debian è possibile utilizzare il seguente comando:
+```
+apt install -y tripwire
+```
+Lo script per la configurazione di Tripwire partirà in automatico permettendo di generare il file di configurazione, il file di policy, le chiavi site.key e local.key e le rispettive passphrases. Il file di configurazione, il file di policy e le chiavi vengono memorizzate nella cartella */etc/tripwire/*.
+
+Fatto ciò è possibile modificare il file di policy in base alle proprie esigenze. Può essere utile partire dal file di default che all'inizio viene fornito sia nel formato utilizzato da tripwire sia in formato testuale. Il file di policy è costituito da regole in cui viene indicato il path completo dei file o della directory che si vuole monitorare e gli attributi che ci interessano di questi file. Gli attributi che Tripwire permette di monitorare sono i seguenti:
+
+![Tripwire_properties](img/tripwire_properties.png)
+
+Per semplificare le cose è possibile anche definire delle variabili che definiscono quali proprietà monitorare. Alcune di queste variabili sono presenti di default e sono indicate nella tabella in basso.
+
+![Tripwire_variabili](img/tripwire_variabili.png)
+
+Di seguito viene mostrata una porzione del file di policy.
+
+![Tripwire_policy](img/tripwire_policy.png)
+
+Per rendere effettive tali configurazioni occorre eseguire il comando seguente, il quale codifica il nuovo file di configurazione e lo firma con la site key.
+```
+twadmin --create-polfile -S /etc/tripwire/site.key /etc/tripwire/twpol.txt
+```
+
+Dopodiché occorre inizializzare il database:
+```
+tripwire --init
+```
+
+Tale comando crea il database con i dati dei file da monitorare. Una volta fatto ciò i file di configurazione e di policy che sono in formato testuale (.txt) devono essere eliminati.
+
+A questo punto per eseguire un controllo sull'integrità del sistema non ci resta che eseguire:
+```
+tripwire --check
+```
+Questo comporta la creazione di un report con tutte le modifiche rilevate.
+
+Infine, è possibile sfruttare l'utility *cron* di Linux per programmare l'esecuzione di un check in modo periodico e del tutto automatico. Per farlo basta aggiungere modificare la *crontab* di Linux eseguendo 
+```
+crontab -e
+```
+ed inserendo la riga 
+```
+0 5 * * * /usr/sbin/tripwire --check
+```
+
+In questo caso è stato configurato un controllo di integrità tutti i giorni alle ore 05:00.
+
+## Caso d'uso
+La procedura qui descritta è pensata per essere implementata in uno scenario di rete reale. L'idea di base è quella di utilizzare ONIE (Open Network Install Environment) + ONL (Open Network Linux). ONIE è la combinazione di un boot loader e un piccolo sistema operativo per switch di rete che fornisce un ambiente per il provisioning automatizzato, mentre ONL è una distribuzione Linux per switch bare metal.
+
+Quando una nuova macchina si avvia per la prima volta, ONIE individua ed esegue il programma di installazione di ONL, come mostrato qui:
+
+![ONIE_firstboot](img/onie_first_boot.png)
+
+Dopo l'installazione iniziale, i successivi avvii passano direttamente ad ONL, bypassando ONIE.
+
+![ONIE_nextboot](img/onie_next_boot.png)
+
+Sia ONIE che ONL sono sistemi operativi basati su Linux, pertanto, l'applicazione del Secure Boot con shim è appropriata.
 
 ## Riferimenti
 ### Secure Boot
@@ -216,3 +292,16 @@ https://wiki.archlinux.org/title/Trusted_Platform_Module
 https://wiki.archlinux.org/title/Clevis
 
 https://access.redhat.com/documentation/fr-fr/red_hat_enterprise_linux/9/html/security_hardening/configuring-manual-enrollment-of-volumes-using-tpm2_configuring-automated-unlocking-of-encrypted-volumes-using-policy-based-decryption
+
+### Tripwire
+
+http://www.di-srv.unisa.it/~ads/corso-security/www/CORSO-0304/Tripwire-Linux/index.htm
+
+http://www.di-srv.unisa.it/~ads/corso-security/www/CORSO-0102/tripwire/tripwire.htm
+
+https://github.com/Tripwire/tripwire-open-source?tab=readme-ov-file
+
+### ONIE
+https://opencomputeproject.github.io/onie/overview/index.html
+
+http://mirror.opencompute.org/onie/docs/ONIESecureBootv2.pdf
