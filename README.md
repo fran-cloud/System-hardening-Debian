@@ -208,7 +208,7 @@ Tuttavia, utilizzando la stessa procedura su una distribuzione Debian 11, il tut
 ### Controllo di integrità con Tripwire
 Tripwire è un tool di sicurezza che consente di monitorare le modifiche apportate a file e directory rispetto a uno stato sicuro di partenza. Qui viene applicato alla partizione root. Il funzionamento di Tripwire può essere schematizzato come segue:
 
-![Tripwire_workflow](img/tripwire_workflow.png)
+![Tripwire_workflow](img/tripwire/tripwire_workflow.png)
 
 In pratica, viene utilizzato un file di policy dove vengono indicate le regole che stabiliscono quali oggetti devono essere controllati ed in che modo. Sulla base di queste policy, Tripwire calcola una fotografia del sistema quando è in uno stato sicuro, memorizzando un insieme di informazioni relative ad ogni oggetto (file e directory) che vogliamo proteggere da eventuali manomissioni. Questo è possibile mediante l'impiego di funzioni hash. Questa fotografia viene conservata in un file apposito (database dei file di sistema).
 
@@ -224,15 +224,11 @@ Lo script per la configurazione di Tripwire partirà in automatico permettendo d
 
 Fatto ciò è possibile modificare il file di policy in base alle proprie esigenze. Può essere utile partire dal file di default che all'inizio viene fornito sia nel formato utilizzato da tripwire sia in formato testuale. Il file di policy è costituito da regole in cui viene indicato il path completo dei file o della directory che si vuole monitorare e gli attributi che ci interessano di questi file. Gli attributi che Tripwire permette di monitorare sono i seguenti:
 
-![Tripwire_properties](img/tripwire_properties.png)
+![Tripwire_properties](img/tripwire/tripwire_prop.png)
 
 Per semplificare le cose è possibile anche definire delle variabili che definiscono quali proprietà monitorare. Alcune di queste variabili sono presenti di default e sono indicate nella tabella in basso.
 
-![Tripwire_variabili](img/tripwire_variabili.png)
-
-Di seguito viene mostrata una porzione del file di policy.
-
-![Tripwire_policy](img/tripwire_policy.png)
+![Tripwire_variabili](img/tripwire/tripwire_var.png)
 
 Per rendere effettive tali configurazioni occorre eseguire il comando seguente, il quale codifica il nuovo file di configurazione e lo firma con la site key.
 ```
@@ -268,11 +264,11 @@ La procedura qui descritta è pensata per essere implementata in uno scenario di
 
 Quando una nuova macchina si avvia per la prima volta, ONIE individua ed esegue il programma di installazione di ONL, come mostrato qui:
 
-![ONIE_firstboot](img/onie_first_boot.png)
+![ONIE_firstboot](img/ONIE/onie_first_boot.png)
 
 Dopo l'installazione iniziale, i successivi avvii passano direttamente ad ONL, bypassando ONIE.
 
-![ONIE_nextboot](img/onie_next_boot.png)
+![ONIE_nextboot](img/ONIE/onie_next_boot.png)
 
 Sia ONIE che ONL sono sistemi operativi basati su Linux, pertanto, l'applicazione del Secure Boot con shim è appropriata.
 
