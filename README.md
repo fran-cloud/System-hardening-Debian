@@ -264,11 +264,11 @@ La procedura qui descritta è pensata per essere implementata in uno scenario di
 
 Quando una nuova macchina si avvia per la prima volta, ONIE individua ed esegue il programma di installazione di ONL, come mostrato qui:
 
-![ONIE_firstboot](img/ONIE/onie_first_boot.png)
+![ONIE_firstboot](img/ONIE/first_boot.png)
 
 Dopo l'installazione iniziale, i successivi avvii passano direttamente ad ONL, bypassando ONIE.
 
-![ONIE_nextboot](img/ONIE/onie_next_boot.png)
+![ONIE_nextboot](img/ONIE/second_boot.png)
 
 Sia ONIE che ONL sono sistemi operativi basati su Linux, pertanto, l'applicazione del Secure Boot con shim è appropriata.
 
