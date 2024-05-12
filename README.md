@@ -243,8 +243,6 @@ Per rendere effettive tali modifiche eseguire:
 twadmin --create-cfgfile -S /boot/tripwire/site.key /etc/tripwire/twcfg.txt
 ```
 
-A questo punto occorre eliminare il file *twcfg.txt*, le chiavi site e local nella cartella */etc/tripwire* e il binario *tripwire* nella cartella */usr/sbin*.
-
 Fatto ciò è possibile modificare il file di policy in base alle proprie esigenze. Può essere utile partire dal file di default che all'inizio viene fornito sia nel formato utilizzato da tripwire sia in formato testuale. Il file di policy è costituito da regole in cui viene indicato il path completo dei file o della directory che si vuole monitorare e gli attributi che ci interessano di questi file. Gli attributi che Tripwire permette di monitorare sono i seguenti:
 
 ![Tripwire_properties](img/tripwire/tripwire_prop.png)
@@ -263,7 +261,7 @@ Dopodiché occorre inizializzare il database:
 /boot/tripwire/tripwire --init
 ```
 
-Tale comando crea il database con i dati dei file da monitorare. Una volta fatto ciò occorre eliminare anche il file di policy in formato testuale (*twpol.txt*).
+Tale comando crea il database con i dati dei file da monitorare. Una volta fatto ciò occorre eliminare il file di policy e il file di configurazione in formato testuale (*twpol.txt* e *twcfg.txt*).
 
 A questo punto per effettuare un controllo sull'integrità del sistema non ci resta che eseguire:
 ```
