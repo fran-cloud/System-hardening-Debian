@@ -190,7 +190,7 @@ Per legare la cifratura del disco ai valori presenti in tali registri viene util
 apt install -y clevis clevis-luks clevis-tpm2 clevis-dracut
 ```
 
-Fatto ciò basta un sepmlice comando per far sì che il disco si sblocchi in automatico all'avvio in base ai valori dei PCR selezionati. Il comando è il seguente:
+Fatto ciò basta un semplice comando per far sì che il disco si sblocchi in automatico all'avvio in base ai valori dei PCR selezionati. Il comando è il seguente:
 
 ```
 clevis luks bind -d /dev/sda4 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank":"sha256","pcr_ids":"0,1,7,9,14"}'
