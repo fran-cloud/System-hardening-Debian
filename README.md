@@ -182,7 +182,7 @@ Una volta terminata la configurazione del secure boot, è possibile passare all'
 
 ![pcr](img/pcr.png)
 
-In questo caso vengono utilizzati PCR0, PCR1, PCR7 e PCR14.
+In questo caso vengono utilizzati PCR0, PCR1, PCR7, PCR9 e PCR14.
 
 Per legare la cifratura del disco ai valori presenti in tali registri viene utilizzato *Clevis*, un framework che consente di associare un volume LUKS a un sistema creando una chiave, crittografandola utilizzando il TPM e sigillando la chiave utilizzando valori PCR che rappresentano lo stato del sistema al momento della creazione della chiave. Occorre quindi installare i relativi pacchetti:
 
@@ -193,7 +193,7 @@ apt install -y clevis clevis-luks clevis-tpm2 clevis-dracut
 Fatto ciò basta un sepmlice comando per far sì che il disco si sblocchi in automatico all'avvio in base ai valori dei PCR selezionati. Il comando è il seguente:
 
 ```
-clevis luks bind -d /dev/sda4 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank":"sha256","pcr_ids":"0,1,7,14"}'
+clevis luks bind -d /dev/sda4 -s 2 tpm2 '{"hash":"sha256","key":"rsa","pcr_bank":"sha256","pcr_ids":"0,1,7,9,14"}'
 ```
 L'esecuzione di questo comando richiede di inserire la password di decifratura già esistente per la partizione (in questo caso partizione home). Questo comando va eseguito per tutte le partizioni che si desidera cifrare con TPM e decifrare in maniera automatica all'avvio, quindi viene ripetuto anche per le partizioni secrets (/dev/sda5) e swap (/dev/sda6).
 
@@ -218,37 +218,56 @@ In pratica, viene utilizzato un file di policy dove vengono indicate le regole c
 
 Quando viene effettuato l'integrity check, viene calcolata una nuova fotografia del sistema e viene confrontata con quella conservata nel database. Il risultato di questo confronto è un file di report in cui vengono evidenziate tutte modifiche che sono state apportate al sistema rispetto allo stato sicuro. A questo punto spetta all'amministratore stabilire se le modifiche sono dannose o meno per il sistema, e prendere le dovute contromisure. Tripwire può essere configurato in modo da inviare una e-mail all’amministratore del sistema in caso di modifiche critiche per la sicurezza.
 
-Per proteggersi da modifiche non autorizzate, Tripwire memorizza i suoi file più importanti (database, policy, configurazione e report) in un formato binario interno, dopodichè vi applica una firma digitale. In particolare, Tripwire si avvale di due key file: site key e local key (ognuno dei quali è generato tramite il comando twadmin e contiene una coppia di chiavi pubblica/privata). La prima serve a firmare il file di configurazione e il file di policy; l'altra viene utilizzata per firmare il database e i report. Di conseguenza, modificare o sostituire i suddetti file richiede la conoscenza della chiave privata, la quale è cifrata con una passphrase generata in fase di installazione.
+Per proteggersi da modifiche non autorizzate, Tripwire memorizza i suoi file più importanti (database, policy e configurazione) in un formato binario interno, dopodichè vi applica una firma digitale. In particolare, Tripwire si avvale di due key file: site key e local key (ognuno dei quali è generato tramite il comando twadmin e contiene una coppia di chiavi pubblica/privata). La prima serve a firmare il file di configurazione e il file di policy; l'altra viene utilizzata per firmare il database. Di conseguenza, modificare o sostituire i suddetti file richiede la conoscenza della chiave privata, la quale è cifrata con una passphrase generata in fase di installazione.
 
 Per installare Tripwire su Debian è possibile utilizzare il seguente comando:
 ```
 apt install -y tripwire
 ```
-Lo script per la configurazione di Tripwire partirà in automatico permettendo di generare il file di configurazione, il file di policy, le chiavi site.key e local.key e le rispettive passphrases. Il file di configurazione, il file di policy e le chiavi vengono memorizzate nella cartella */etc/tripwire/*.
+Lo script per la configurazione di Tripwire partirà in automatico permettendo di generare il file di configurazione, il file di policy, le chiavi site.key e local.key e le rispettive passphrases. Il file di configurazione, il file di policy e le chiavi vengono memorizzate nella cartella */etc/tripwire/*. Per una maggiore pretezione, i file critici di Tripwire sono stati spostati all'interno della partizione boot, la quale sarà smontata in seguito all'avvio e montata solo quando necessaria (prima di effettuare controlli di integrità o prima di aggiornamenti). Le chiavi *local* e *site* e il binario *tripwire* sono gli unici oggetti di Tripwire che occorre proteggere, in qunato gli altri file risultano firmati ed un'eventuale loro alterazione sarebbe rilevata.
+
+```
+mkdir /boot/tripwire
+mv /usr/sbin/tripwire /boot/tripwire/tripwire
+mv /etc/tripwire/debian-local.key /boot/tripwire/debian-local.key
+mv /etc/tripwire/site.keu /boot/tripwire/site.key
+```
+Occorre poi modificare il file di configurazione */etc/tripwire/twcgf.txt* indicando i path di tali file:
+```
+ROOT = /boot/tripwire
+SITEKEYFILE = /boot/tripwire/site.key
+LOCALKEYFILE = /boot/tripwire/debian-local.key
+```
+Per rendere effettive tali modifiche eseguire:
+```
+twadmin --create-cfgfile -S /boot/tripwire/site.key /etc/tripwire/twcfg.txt
+```
+
+A questo punto occorre eliminare il file *twcfg.txt*, le chiavi site e local nella cartella */etc/tripwire* e il binario *tripwire* nella cartella */usr/sbin*.
 
 Fatto ciò è possibile modificare il file di policy in base alle proprie esigenze. Può essere utile partire dal file di default che all'inizio viene fornito sia nel formato utilizzato da tripwire sia in formato testuale. Il file di policy è costituito da regole in cui viene indicato il path completo dei file o della directory che si vuole monitorare e gli attributi che ci interessano di questi file. Gli attributi che Tripwire permette di monitorare sono i seguenti:
 
 ![Tripwire_properties](img/tripwire/tripwire_prop.png)
 
-Per semplificare le cose è possibile anche definire delle variabili che definiscono quali proprietà monitorare. Alcune di queste variabili sono presenti di default e sono indicate nella tabella in basso.
+Per semplificare le cose è possibile anche definire delle variabili che indicano quali proprietà monitorare. Alcune di queste variabili sono presenti di default e sono indicate nella tabella in basso.
 
 ![Tripwire_variabili](img/tripwire/tripwire_var.png)
 
-Per rendere effettive tali configurazioni occorre eseguire il comando seguente, il quale codifica il nuovo file di configurazione e lo firma con la site key.
+Per utilizzare le nuove policy è necessario eseguire il comando seguente, il quale codifica il file nel formato utilizzato da Tripwire e lo firma con la site key.
 ```
 twadmin --create-polfile -S /etc/tripwire/site.key /etc/tripwire/twpol.txt
 ```
 
 Dopodiché occorre inizializzare il database:
 ```
-tripwire --init
+/boot/tripwire/tripwire --init
 ```
 
-Tale comando crea il database con i dati dei file da monitorare. Una volta fatto ciò i file di configurazione e di policy che sono in formato testuale (.txt) devono essere eliminati.
+Tale comando crea il database con i dati dei file da monitorare. Una volta fatto ciò occorre eliminare anche il file di policy in formato testuale (*twpol.txt*).
 
-A questo punto per eseguire un controllo sull'integrità del sistema non ci resta che eseguire:
+A questo punto per effettuare un controllo sull'integrità del sistema non ci resta che eseguire:
 ```
-tripwire --check
+/boot/tripwire/tripwire --check
 ```
 Questo comporta la creazione di un report con tutte le modifiche rilevate. Il report viene salvato in */var/lib/tripwire/report/* ed è possibile leggerlo lanciando il comando:
 ```
@@ -259,12 +278,15 @@ Infine, è possibile sfruttare l'utility *cron* di Linux per programmare l'esecu
 ```
 crontab -e
 ```
-ed inserendo la riga 
+ed inserendo le righe
 ```
-0 5 * * * /usr/sbin/tripwire --check
+@reboot /boot/tripwire/tripwire --check
+@reboot sleep 60 && /usr/bin/umount /dev/sda1 && /usr/bin/umount /dev/sda2
+0 5 * * * /usr/bin/mount /dev/sda2 && /boot/tripwire/tripwire --check
+2 5 * * * /usr/bin/umount /dev/sda2
 ```
 
-In questo caso è stato configurato un controllo di integrità tutti i giorni alle ore 05:00.
+In questo caso è stato configurato un controllo di integrità dopo ogni riavvio e ogni giorno alle ore 05:00 del mattino. Inoltre, cron viene utilizzato anche per gestire il mount e l'umount della partizione boot.
 
 ## Caso d'uso
 La procedura qui descritta è pensata per essere implementata in uno scenario di rete reale. L'idea di base è quella di utilizzare ONIE (Open Network Install Environment) + ONL (Open Network Linux). ONIE è la combinazione di un boot loader e di un piccolo sistema operativo per switch di rete che fornisce un ambiente per il provisioning automatizzato, mentre ONL è una distribuzione Linux per switch bare metal.
