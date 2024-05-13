@@ -374,6 +374,11 @@ http://www.di-srv.unisa.it/~ads/corso-security/www/CORSO-0102/tripwire/tripwire.
 
 https://github.com/Tripwire/tripwire-open-source?tab=readme-ov-file
 
+### OpenSCAP
+https://static.open-scap.org/openscap-1.2/oscap_user_manual.html
+
+https://fossies.org/linux/openscap/docs/developer/developer.adoc
+
 ### ONIE
 https://opencomputeproject.github.io/onie/overview/index.html
 
