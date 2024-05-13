@@ -286,6 +286,46 @@ ed inserendo le righe
 
 In questo caso è stato configurato un controllo di integrità dopo ogni riavvio e ogni giorno alle ore 05:00 del mattino. Inoltre, cron viene utilizzato anche per gestire il mount e l'umount della partizione boot.
 
+### Linux hardening con OpenSCAP
+Viene utilizzato OpenSCAP per eseguire un check di sicurezza sulle configurazioni del sistema. OpenSCAP utilizza SCAP, una linea di specifiche gestita dal NIST e creata per fornire un approccio standardizzato al mantenimento della sicurezza dei sistemi. Il progetto SSG scap-security-guide fornisce contenuti SCAP, ovvero politiche di sicurezza che coprono molte aree della sicurezza informatica e implementano le linee guida sulla sicurezza raccomandate da istituzioni autorevoli, come PCI DSS, STIG e USGCB.
+Per eseguire una scansione automatica delle configurazioni del sistema è necessario uno specifico tool (oscap) e dei documenti in cui vengono fornite le configurazioni sicure. In Debian 11 non sono presenti i pacchetti già compilati di tali componenti, quindi, non è possibile installarli tramite apt. Occorre scaricare e compilare il codice sorgente.
+
+```
+$ git clone https://github.com/OpenSCAP/openscap.git
+$ cd openscap
+
+$ sudo apt-get install -y cmake libdbus-1-dev libdbus-glib-1-dev libcurl4-openssl-dev \
+libgcrypt20-dev libselinux1-dev libxslt1-dev libgconf2-dev libacl1-dev libblkid-dev \
+libcap-dev libxml2-dev libldap2-dev libpcre3-dev python-dev swig libxml-parser-perl \
+libxml-xpath-perl libperl-dev libbz2-dev librpm-dev g++ libyaml-dev \
+libxmlsec1-dev libxmlsec1-openssl
+
+$ cd build/
+$ cmake ../
+$ make
+$ make install
+```
+Una volta fatto ciò è possibile utilizzare oscap grazie allo script oscap_wrapper generato nella cartella */openscap/build*. Prima di poter eseguire una scansione è necessario scaricare la scap security guide relativa a Debian 11 (https://github.com/ComplianceAsCode/content/releases/tag/v0.1.72). Estraendo il file zip possiamo trovare i documenti relativi a diverse distro Linux. Si tratta di documenti di tipo DataStream e contengono le direttive per diversi profili di sicurezza: minimal, average, high, standard. 
+
+Per comodità spostiamo il file DataStream di nostro interesse in un’apposita cartella */mnt/openscap/ssg-debian11-ds.xml*.
+È possibile eseguire una scansione eseguendo tale comando dalla cartella /openscap/build:
+```
+./oscap_wrapper xccdf eval --profile [profile_id] --results results.xml --report report.html ssg-debian11-ds.xml
+```
+
+L'id del profilo di sicurezza da utilizzare lo si può ricavare dal seguente comando:
+```
+./oscap_wrapper info ssg-debian11-ds.xml
+```
+I profili di sicurezza sono incrementali, quindi il profilo high estende le misure del profilo average che estende quelle del profilo minimal. In questo caso è stato applicato il profilo minimal.
+In seguito alla scansione viene generato un report in formato html con i risultati.
+
+![openscap_report1](img/openscap/report1.png)
+
+![openscap_report2](img/openscap/report2.png)
+
+![openscap_report3](img/openscap/report3.png)
+
 ## Caso d'uso
 La procedura qui descritta è pensata per essere implementata in uno scenario di rete reale. L'idea di base è quella di utilizzare ONIE (Open Network Install Environment) + ONL (Open Network Linux). ONIE è la combinazione di un boot loader e di un piccolo sistema operativo per switch di rete che fornisce un ambiente per il provisioning automatizzato, mentre ONL è una distribuzione Linux per switch bare metal.
 
