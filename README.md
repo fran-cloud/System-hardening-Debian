@@ -285,6 +285,89 @@ ed inserendo le righe
 
 In questo caso è stato configurato un controllo di integrità dopo ogni riavvio e ogni giorno alle ore 05:00 del mattino. Inoltre, cron viene utilizzato anche per gestire il mount e l'umount della partizione boot.
 
+## Kernel hardening
+Il kernel hardening è un processo che consiste nell'analisi delle configurazioni del kernel di un sistema operativo al fine di incrementarne la sicurezza. Tale processo permette di ridurre la superficie di attacco del sistema, rimuovere intere classi di bug, eliminare le funzionalità deprecate o insicure, minimizzare i privilegi concessi, fornire soluzioni di sicurezza avanzate.
+In questo caso viene utilizzato **kernel-hardening-checker**, uno strumento open-source che ci permette di ispezionare i singoli campi della configurazione del kernel alla ricerca di eventuali vulnerabilità. Tale strumento fa riferimento ai principali progetti incentrati sulla configurazione sicura del kernel Linux e va a controllare tre tipologie di parametri: quelli disponibili in fase di compilazione (kconfig); quelli passati al kernel durante l'avvio del sistema (cmdline); quelli configurabili a runtime (sysctl).
+
+È possibile installare tale tool con il seguente comando:
+```
+pip install git+https://github.com/a13xp0p0v/kernel-hardening-checker
+```
+
+Per comodità, viene creata una cartella con una copia di tutti i file di configurazione da controllare:
+```
+mkdir kernel_hardening
+cd kernel_hardening
+cp /boot/config-5.10.0-29-amd64 config-5.10.0-29-amd64
+cp /proc/cmdline cmdline
+touch sysctl_params.txt
+sysctl -a > sysctl_params.txt
+```
+
+Dopodiché viene fatto partire il controllo:
+```
+kernel-hardening-checker -c config-5.10.0-29-amd64 -l cmdline -s sysctl_params.txt > kernel_hardening_results.txt
+```
+Dai risultati ottenuti, è possibile esaminare tutte le configurazioni in modo da comprenderne l'utilità ed estrapolare una configurazione adatta al nostro sistema.
+
+### Test: kernel hardening e secure boot
+Ricavato un profilo di sicurezza di base con cui configurare il kernel Linux, è stato effettuato un ulteriore test andando a riconfigurare e ricompilare il kernel. Per fare ciò occorre installare i seguenti pacchetti:
+```
+apt install -y build-essential libncurses-dev fakeroot rsync libelf-dev libssl-dev
+```
+Dopodiché devono essere scaricati i sorgenti del kernel con:
+```
+apt install linux-source-5.10
+```
+*Nota: ogni versione di Debian utilizza in genere una certa versione del kernel e specifiche versioni di altri pacchetti ad esso correlati in modo tale che l'insieme sia il più possibile stabile. È quindi altamente consigliato usare la versione dei sorgenti del kernel che si trova nei repository della nostra versione di Debian. È possibile conoscere le versioni disponibili eseguento: `apt search ^linux-source`.*
+
+Viene creata un'apposita cartella in cui estrarre i sorgenti:
+```
+mkdir ~/kernel; cd ~/kernel
+tar -xaf /usr/src/linux-source-5.10.tar.xz
+cd linux-source-5.10/
+```
+
+Invece di configurare il kernel da zero, è possibile partire da una configurazione standard. In questo caso viene utilizzata la configurazione di default: `cp /boot/config-5.10.0-29amd custom_conf.config`. Viene usata un'interfaccia testuale per configurare il kernel:
+```
+make menuconfig
+```
+
+Una volta terminata la configurazione ci sono delle opzioni da disabilitare prima di compilarlo:
+```
+scripts/config --disable SYSTEM_TRUSTED_KEYS
+scripts/config --disable DEBUG_INFO_BTF
+```
+A questo punto è possibile far partire la compilazione con:
+```
+make deb-pkg
+```
+
+Finito il processo, nella cartella ~/kernel si avranno diversi pacchetti tra i quali il .deb del kernel appena compilato. È possibile installarlo con il seguente comando:
+```
+$ dpkg -i linux-image-5.10.218_5.10.218-1_amd64.deb
+```
+
+Riavviando il sistema, è possibile notare che l'avvio viene bloccato. Questo perché il kernel e tutti i relativi moduli non risulta firmati. Occorre quindi disabilitare il secure boot e firmare il tutto.
+Per la firma del kernel è possibile utilizzare il seguente comando:
+```
+sbsign --key MOK.priv --cert MOK.pem --output /boot/vmlinuz-5.10.218 /boot/vmlinuz-5.10.218
+```
+Per la firma di tutti i moduli kernel è stato creato il seguente script:
+```
+#!bin/sh
+for OUTPUT in $(find /lib/modules/5.10.218/kernel/ -name *.ko)
+do
+	/usr/src/linux-kbuild-5.10/scripts/sign-file sha256 /var/lib/shim-signed/mok/MOK.priv /var/lib/shim-signed/mok/MOK.der $OUTPUT
+done
+```
+Fatto ciò occorre rigenerate l'initramfs con:
+```
+dracut -fv --regenerate-all
+```
+A questo punto il tutto funziona perfettamente.
+
+
 ## Linux hardening con OpenSCAP
 Viene utilizzato OpenSCAP per eseguire un check di sicurezza sulle configurazioni del sistema. OpenSCAP utilizza SCAP, una linea di specifiche gestita dal NIST e creata per fornire un approccio standardizzato al mantenimento della sicurezza dei sistemi. Il progetto SSG scap-security-guide fornisce contenuti SCAP, ovvero politiche di sicurezza che coprono molte aree della sicurezza informatica e implementano le linee guida sulla sicurezza raccomandate da istituzioni autorevoli, come PCI DSS, STIG e USGCB.
 Per eseguire una scansione automatica delle configurazioni del sistema è necessario uno specifico tool (oscap) e dei documenti in cui vengono fornite le configurazioni sicure. In Debian 11 non sono presenti i pacchetti già compilati di tali componenti, quindi, non è possibile installarli tramite apt. Occorre scaricare e compilare il codice sorgente.
@@ -316,7 +399,7 @@ L'id del profilo di sicurezza da utilizzare lo si può ricavare dal seguente com
 ```
 ./oscap_wrapper info ssg-debian11-ds.xml
 ```
-I profili di sicurezza sono incrementali, quindi il profilo high estende le misure del profilo average che estende quelle del profilo minimal. In questo caso è stato applicato il profilo minimal.
+I profili di sicurezza sono incrementali, quindi il profilo high estende le misure del profilo average che estende quelle del profilo minimal. In questo caso è stato applicato il profilo high.
 In seguito alla scansione viene generato un report in formato html con i risultati.
 
 ![openscap_report1](img/openscap/report1.png)
@@ -372,6 +455,11 @@ http://www.di-srv.unisa.it/~ads/corso-security/www/CORSO-0304/Tripwire-Linux/ind
 http://www.di-srv.unisa.it/~ads/corso-security/www/CORSO-0102/tripwire/tripwire.htm
 
 https://github.com/Tripwire/tripwire-open-source?tab=readme-ov-file
+
+### Kernel hardeninng
+https://github.com/a13xp0p0v/kernel-hardening-checker/
+
+https://debian-handbook.info/browse/it-IT/stable/sect.kernel-compilation.html
 
 ### OpenSCAP
 https://static.open-scap.org/openscap-1.2/oscap_user_manual.html
