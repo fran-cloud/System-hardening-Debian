@@ -9,8 +9,7 @@ Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo
 
 Inoltre, viene implementato anche un controllo di integrità utilizzando Tripwire nella sua versione open source, in modo da avere il pieno controllo su tutte le modifiche riguardanti i file critici del sistema. Infine viene svolto un lavoro di hardening sia a livello kernel sia a livello di sistema operativo.
 
-## Procedura
-### Setup
+## Setup
 La procedura qui descritta è stata testata utilizzando Debian 10.13.0-amd64 su una macchina virtuale creata con VirtualBox versione 7. È importante utilizzare l'ultima versione di VirtualBox perché consente di emulare un modulo TPM.
 
 ### Configurazione macchina virtuale ed installazione di Debian
@@ -31,7 +30,7 @@ A questo punto è possibile procedere con l'installazione di Debian. Durante l'i
 * **swap:** area di swap. Tale partizione verrà cifrata con luks+TPM.
 
 
-### Secure Boot
+## Secure Boot
 Ad installazione completata il secure boot è già funzionante e fa affidamento su chiavi presenti di default nel firmaware (in genere chiavi Microsoft e chiavi del produttore della scheda madre) e su Shim. Quest'ultimo è firmato da Microsoft e ingloba la chiave pubblica di Debian che viene usata per verificare i componenti successivi (bootloader GRUB, Kernel).
 Ci sono quattro tipi di chiavi di avvio sicuro integrate nel firmware:
 
@@ -177,8 +176,8 @@ A questo punto è possibile spegnere la VM e abilitare il Secure Boot che funzio
 
 *NB: è possibile firmmare Shim non appena la chiave db viene generata; tuttavia in questo caso si è preferito firmarlo in seguito alla sostituzione delle chiavi nel firmware per evidenziare il corretto funzionamento di Secure Boot che blocca l'avvio in caso di software non verificato.*
 
-### Integrazione TPM
-Una volta terminata la configurazione del secure boot, è possibile passare all'integrazione del TPM. In particolare, vengono utilizzati i Platform Configuration Regiters (PCR) del TPM, nei quali vengono memorizzati gli hashes relativi allo stato del sistema. Nella sguente tabella vengono mostrate le informazioni registrate nei principali PCR.
+## Measured boot
+Una volta terminata la configurazione del secure boot, è possibile passare all'integrazione del TPM. In particolare, vengono utilizzati i Platform Configuration Regiters (PCR) del TPM, nei quali vengono memorizzati gli hash relativi allo stato del sistema. Nella sguente tabella vengono mostrate le informazioni registrate nei principali PCR.
 
 ![pcr](img/pcr.png)
 
@@ -209,7 +208,7 @@ In Debian 10 è possibile riscontrare dei problemi con l'utilizzo del TPM. Nel m
 
 Tuttavia, utilizzando la stessa procedura su una distribuzione Debian 11, il tutto funziona perfettamente.
 
-### Controllo di integrità con Tripwire
+## Integrity monitoring con Tripwire
 Tripwire è un tool di sicurezza che consente di monitorare le modifiche apportate a file e directory rispetto a uno stato sicuro di partenza. Qui viene applicato alla partizione root. Il funzionamento di Tripwire può essere schematizzato come segue:
 
 ![Tripwire_workflow](img/tripwire/tripwire_workflow.png)
@@ -286,7 +285,7 @@ ed inserendo le righe
 
 In questo caso è stato configurato un controllo di integrità dopo ogni riavvio e ogni giorno alle ore 05:00 del mattino. Inoltre, cron viene utilizzato anche per gestire il mount e l'umount della partizione boot.
 
-### Linux hardening con OpenSCAP
+## Linux hardening con OpenSCAP
 Viene utilizzato OpenSCAP per eseguire un check di sicurezza sulle configurazioni del sistema. OpenSCAP utilizza SCAP, una linea di specifiche gestita dal NIST e creata per fornire un approccio standardizzato al mantenimento della sicurezza dei sistemi. Il progetto SSG scap-security-guide fornisce contenuti SCAP, ovvero politiche di sicurezza che coprono molte aree della sicurezza informatica e implementano le linee guida sulla sicurezza raccomandate da istituzioni autorevoli, come PCI DSS, STIG e USGCB.
 Per eseguire una scansione automatica delle configurazioni del sistema è necessario uno specifico tool (oscap) e dei documenti in cui vengono fornite le configurazioni sicure. In Debian 11 non sono presenti i pacchetti già compilati di tali componenti, quindi, non è possibile installarli tramite apt. Occorre scaricare e compilare il codice sorgente.
 
