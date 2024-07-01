@@ -1,13 +1,13 @@
-# Secure-Boot-Debian-10
+# System Hardening - Debian
 In questo progetto viene descritta la procedura per abilitare UEFI Secure Boot su una distribuzione Debian 10. Il Secure Boot è una funzione aggiunta alle specifiche UEFI 2.3.1 e prevede che ogni file binario utilizzato durante l'avvio del sistema venga convalidato prima dell'esecuzione. La convalida comporta il controllo di una firma mediante un certificato. Il processo descritto in questo progetto si basa sul'utilizzo di Shim, un semplice pacchetto software progettato per funzionare come bootloader di prima fase sui sistemi UEFI. Le fasi previste dal Secure Boot sono illustrate nella figura seguente.
 
 ![sb_process](img/SB.png)
 
-Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM fornisce un controllo sullo stato del sistema. L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare alcune partizioni del disco e decifrarle automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
+Una maggiore sicurezza si ha integrando il processo di Secure Boot con un modulo TPM. In questo scenario, il Secure Boot svolge un ruolo attivo di controllo del boot, mentre il TPM fornisce un controllo sullo stato del sistema (measured boot). L'approccio utilizzato in questo caso per integrare il TPM consiste nel cifrare alcune partizioni del disco e decifrarle automaticamente all'avvio se lo stato misurato dal TPM corrisponde a quello previsto. Il processo complessivo è mostrato di seguito.
 
 ![sb_tpm_process](img/SB_TPM.png)
 
-Inoltre, viene implementato anche un controllo di integrità utilizzando Tripwire nella sua versione open source, in modo da avere il pieno controllo su tutte le modifiche riguardanti i file critici del sistema.
+Inoltre, viene implementato anche un controllo di integrità utilizzando Tripwire nella sua versione open source, in modo da avere il pieno controllo su tutte le modifiche riguardanti i file critici del sistema. Infine viene svolto un lavoro di hardening sia a livello kernel sia a livello di sistema operativo.
 
 ## Procedura
 ### Setup
@@ -87,7 +87,7 @@ Da qui è possibile confermare la registrazione con *Enroll MOK* >> *Continue* >
 
 Al riavvio, eseguendo di nuovo il comando `mokutil --list-enrolled` oltre alla chiave Debian comparirà anche la chiave appena registrata.
 
-### Test
+### Test secure boot
 Per verificare che tutto funzioni correttamente è possibile scaricare un modulo del kernel Linux non firmato da Debian, compilarlo e provare a caricarlo. In questo caso viene utilizzato il pacchetto dahdi-source. È possibile installare tale pacchetto con `apt install dahdi-source`. Dopo l'installazione, in */usr/src/* viene memorizzato un file .tar.bz2 contenente i sorgenti del modulo. 
 
 *(Per la compilazione del modulo kernel è necessario il pacchetto linux-headers corrispondente alla versione Linux in uso, installabile con `apt install linux-headers-$(uname -r)`).*
@@ -199,7 +199,7 @@ L'esecuzione di questo comando richiede di inserire la password di decifratura g
 
 *Nota: oltre allo sblocco tramite TPM, si consiglia di registrare un'altra chiave di decifratura per le varie partizioni, in caso contrario una eventuale manomissione renderebbe il sistema non più accessibile. La nuova chiave va conservata al sicuro su un dispositivo separato. Va inoltre eliminata la passphrase impostata inizialmente in quanto risulta essere debole.*
 
-### Test
+### Test measured boot
 Per verificare che il controllo dello stato funzioni correttamente è possibile provare a disabilitare il secure boot dalle impostazioni della macchina virtuale oppure ad entrare ed uscire dal menù UEFI durante l'avvio della macchina virtuale. In entrambi i casi il disco non viene sbloccato in automatico, ma viene richiesta la chiave. Lo stesso risultato si ha se si prova ad aggiungere un'ulteriore chiave MOK.
 
 ### Problemi
