@@ -215,7 +215,7 @@ Tripwire è un tool di sicurezza che consente di monitorare le modifiche apporta
 
 In pratica, viene utilizzato un file di policy dove vengono indicate le regole che stabiliscono quali oggetti devono essere controllati ed in che modo. Sulla base di queste policy, Tripwire calcola una fotografia del sistema quando è in uno stato sicuro, memorizzando un insieme di informazioni relative ad ogni oggetto (file e directory) che vogliamo proteggere da eventuali manomissioni. Questo è possibile mediante l'impiego di funzioni hash. Questa fotografia viene conservata in un file apposito (database dei file di sistema).
 
-Quando viene effettuato l'integrity check, viene calcolata una nuova fotografia del sistema e viene confrontata con quella conservata nel database. Il risultato di questo confronto è un file di report in cui vengono evidenziate tutte modifiche che sono state apportate al sistema rispetto allo stato sicuro. A questo punto spetta all'amministratore stabilire se le modifiche sono dannose o meno per il sistema, e prendere le dovute contromisure. Tripwire può essere configurato in modo da inviare una e-mail all’amministratore del sistema in caso di modifiche critiche per la sicurezza.
+Quando viene effettuato l'integrity check, viene calcolata una nuova fotografia del sistema e viene confrontata con quella conservata nel database. Il risultato di questo confronto è un file di report in cui vengono evidenziate tutte le modifiche che sono state apportate al sistema rispetto allo stato sicuro. A questo punto spetta all'amministratore stabilire se le modifiche sono dannose o meno per il sistema, e prendere le dovute contromisure. Tripwire può essere configurato in modo da inviare una e-mail all’amministratore del sistema in caso di modifiche critiche per la sicurezza.
 
 Per proteggersi da modifiche non autorizzate, Tripwire memorizza i suoi file più importanti (database, policy e configurazione) in un formato binario interno, dopodichè vi applica una firma digitale. In particolare, Tripwire si avvale di due key file: site key e local key (ognuno dei quali è generato tramite il comando twadmin e contiene una coppia di chiavi pubblica/privata). La prima serve a firmare il file di configurazione e il file di policy; l'altra viene utilizzata per firmare il database. Di conseguenza, modificare o sostituire i suddetti file richiede la conoscenza della chiave privata, la quale è cifrata con una passphrase generata in fase di installazione.
 
@@ -223,7 +223,7 @@ Per installare Tripwire su Debian è possibile utilizzare il seguente comando:
 ```
 apt install -y tripwire
 ```
-Lo script per la configurazione di Tripwire partirà in automatico permettendo di generare il file di configurazione, il file di policy, le chiavi site.key e local.key e le rispettive passphrases. Il file di configurazione, il file di policy e le chiavi vengono memorizzate nella cartella */etc/tripwire/*. Per una maggiore pretezione, i file critici di Tripwire sono stati spostati all'interno della partizione boot, la quale sarà smontata in seguito all'avvio e montata solo quando necessaria (prima di effettuare controlli di integrità o prima di aggiornamenti). Le chiavi *local* e *site* e il binario *tripwire* sono gli unici oggetti di Tripwire che occorre proteggere, in qunato gli altri file risultano firmati ed un'eventuale loro alterazione sarebbe rilevata.
+Lo script per la configurazione di Tripwire partirà in automatico permettendo di generare il file di configurazione, il file di policy, le chiavi site.key e local.key e le rispettive passphrases. Il file di configurazione, il file di policy e le chiavi vengono memorizzate nella cartella */etc/tripwire/*. Per una maggiore pretezione, i file critici di Tripwire sono stati spostati all'interno della partizione boot, la quale sarà smontata in seguito all'avvio e montata solo quando necessario (prima di effettuare controlli di integrità o prima di aggiornamenti). Le chiavi *local* e *site* e il binario *tripwire* sono gli unici oggetti di Tripwire che occorre proteggere, in quanto gli altri file risultano firmati ed un'eventuale loro alterazione sarebbe rilevata.
 
 ```
 mkdir /boot/tripwire
@@ -333,6 +333,8 @@ Invece di configurare il kernel da zero, è possibile partire da una configurazi
 make menuconfig
 ```
 
+![kernel configuration](img/kernel_hardening/ConfigKernel.png)
+
 Una volta terminata la configurazione ci sono delle opzioni da disabilitare prima di compilarlo:
 ```
 scripts/config --disable SYSTEM_TRUSTED_KEYS
@@ -348,7 +350,10 @@ Finito il processo, nella cartella ~/kernel si avranno diversi pacchetti tra i q
 $ dpkg -i linux-image-5.10.218_5.10.218-1_amd64.deb
 ```
 
-Riavviando il sistema, è possibile notare che l'avvio viene bloccato. Questo perché il kernel e tutti i relativi moduli non risulta firmati. Occorre quindi disabilitare il secure boot e firmare il tutto.
+Riavviando il sistema, è possibile notare che l'avvio viene bloccato. 
+![kernel configuration](img/kernel_hardening/RiavvioBloccato.png)
+
+Questo perché il kernel e tutti i relativi moduli non risultano firmati. Occorre quindi disabilitare il secure boot e firmare il tutto.
 Per la firma del kernel è possibile utilizzare il seguente comando:
 ```
 sbsign --key MOK.priv --cert MOK.pem --output /boot/vmlinuz-5.10.218 /boot/vmlinuz-5.10.218
@@ -367,10 +372,10 @@ dracut -fv --regenerate-all
 ```
 A questo punto il tutto funziona perfettamente.
 
-
 ## Linux hardening con OpenSCAP
-Viene utilizzato OpenSCAP per eseguire un check di sicurezza sulle configurazioni del sistema. OpenSCAP utilizza SCAP, una linea di specifiche gestita dal NIST e creata per fornire un approccio standardizzato al mantenimento della sicurezza dei sistemi. Il progetto SSG scap-security-guide fornisce contenuti SCAP, ovvero politiche di sicurezza che coprono molte aree della sicurezza informatica e implementano le linee guida sulla sicurezza raccomandate da istituzioni autorevoli, come PCI DSS, STIG e USGCB.
-Per eseguire una scansione automatica delle configurazioni del sistema è necessario uno specifico tool (oscap) e dei documenti in cui vengono fornite le configurazioni sicure. In Debian 11 non sono presenti i pacchetti già compilati di tali componenti, quindi, non è possibile installarli tramite apt. Occorre scaricare e compilare il codice sorgente.
+In questa sezione viene eseguito un check sulle configurazioni del sistema a livello applicativo. A tale scopo viene utilizzato **oscap**, uno strumento a linea di comando che permette di controllare le configurazioni di sicurezza di un sistema. Oscap fa parte del progetto OpenSCAP e utilizza SCAP, una linea di specifiche gestite dal NIST e creata per fornire un approccio standardizzato per il mantenimento della sicurezza del sistema. In particolare, in questo caso si fa riferimento al progetto SSG (scap-security-guide) che fornisce policy di sicurezza scritte in forma di documenti SCAP e che coprono molte aree della sicurezza informatica. Tali policy vanno ad implementare linee guida di sicurezza raccomandate dalle principali autorità nel settore della cybersecurity.
+
+In Debian 11 non è presente il pacchetto già compilato di oscap, pertanto occorre scaricare e compilare tale tool a partire dal codice sorgente.
 
 ```
 $ git clone https://github.com/OpenSCAP/openscap.git
@@ -392,7 +397,7 @@ Una volta fatto ciò è possibile utilizzare oscap grazie allo script oscap_wrap
 Per comodità spostiamo il file DataStream di nostro interesse in un’apposita cartella */mnt/openscap/ssg-debian11-ds.xml*.
 È possibile eseguire una scansione eseguendo tale comando dalla cartella /openscap/build:
 ```
-./oscap_wrapper xccdf eval --profile [profile_id] --results results.xml --report report.html ssg-debian11-ds.xml
+./oscap_wrapper xccdf eval --profile [profile_id] --results results.xml --report report.html /mnt/openscap/ssg-debian11-ds.xml
 ```
 
 L'id del profilo di sicurezza da utilizzare lo si può ricavare dal seguente comando:
@@ -407,6 +412,8 @@ In seguito alla scansione viene generato un report in formato html con i risulta
 ![openscap_report2](img/openscap/report2.png)
 
 ![openscap_report3](img/openscap/report3.png)
+
+A partire da tale report sono state poi analizzate le singole regole allo scopo di aggiustare alcuni problemi di configurazione rilevati e di creare un profilo su misura per il sistema in esame. Un ulteriore step è stato fatto integrando le linee guide SCAP con quelle STIG relative a un sistema simile. In questo modo è stato possibile ricavare delle linee guida specifiche per incrementare la sicurezza del nostro sistema.
 
 ## Caso d'uso
 La procedura qui descritta è pensata per essere implementata in uno scenario di rete reale. L'idea di base è quella di utilizzare ONIE (Open Network Install Environment) + ONL (Open Network Linux). ONIE è la combinazione di un boot loader e di un piccolo sistema operativo per switch di rete che fornisce un ambiente per il provisioning automatizzato, mentre ONL è una distribuzione Linux per switch bare metal.
